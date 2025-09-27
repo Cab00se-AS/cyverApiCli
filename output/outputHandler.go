@@ -284,6 +284,7 @@ func PrintSimpleProjectsTable(data interface{}, verboseLevel int) error {
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Name"})
@@ -548,6 +549,7 @@ func PrintSimpleFindingsTable(data interface{}, verboseLevel int) error {
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Title"})
@@ -978,6 +980,7 @@ func PrintClientsTable(clients interface{}, verboseLevel int) error {
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Name", "Email", "Status"})
@@ -1076,6 +1079,7 @@ func PrintPentestersTable(pentesters interface{}, verboseLevel int) error {
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Name", "Email"})
@@ -1140,6 +1144,7 @@ func PrintChecklistsTable(checklists interface{}, verboseLevel int) error {
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Name", "Status"})
@@ -1196,6 +1201,7 @@ func PrintComplianceNormsTable(complianceNorms interface{}, verboseLevel int) er
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Name", "Status"})
@@ -1252,6 +1258,7 @@ func PrintReportVersionsTable(reportVersions interface{}, verboseLevel int) erro
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	t.AppendHeader(table.Row{"ID", "Version", "Created At", "Status"})
@@ -1530,6 +1537,7 @@ func generateCustomTable(items []interface{}, selectedFields []string, verboseLe
 	t.Style().Options.SeparateRows = true
 	t.Style().Options.DrawBorder = true
 	t.Style().Options.SeparateColumns = true
+	t.Style().Options.SeparateHeader = true
 
 	// Set table headers
 	headerRow := make([]interface{}, len(selectedFields))
