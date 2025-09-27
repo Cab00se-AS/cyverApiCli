@@ -1,15 +1,17 @@
 # Error Handling in Cyver API CLI
 
-This document describes the comprehensive error handling system implemented in the Cyver API CLI.
+This document describes the comprehensive error handling system implemented in the Cyver API CLI project.
 
 ## Overview
 
 The error handling system provides:
 - **Structured error types** with consistent interfaces
 - **Error categorization** by severity and type
-- **Retry mechanisms** for transient failures
+- **Retry mechanisms** for transient failures (planned)
 - **User-friendly error messages** with appropriate exit codes
 - **Comprehensive logging** for debugging
+- **Input validation** with clear error messages
+- **Exit code mapping** based on error severity
 
 ## Error Types
 
@@ -37,8 +39,14 @@ type CyverError struct {
 |------|-------------|----------|-----------|
 | `CONFIG_MISSING` | Configuration missing | High | No |
 | `CONFIG_INVALID` | Invalid configuration | High | No |
+| `CONFIG_FILE_NOT_FOUND` | Configuration file not found | High | No |
 | `AUTH_FAILED` | Authentication failed | High | No |
 | `TOKEN_EXPIRED` | Token expired | High | Yes |
+| `TOKEN_INVALID` | Token invalid | High | No |
+| `CREDENTIALS_INVALID` | Invalid credentials | High | No |
+| `TWO_FACTOR_REQUIRED` | Two-factor authentication required | High | No |
+| `API_NOT_FOUND` | API resource not found | Medium | No |
+| `API_BAD_REQUEST` | API bad request | Medium | No |
 | `API_UNAUTHORIZED` | API unauthorized | Medium | No |
 | `API_FORBIDDEN` | API forbidden | Medium | No |
 | `API_RATE_LIMITED` | Rate limited | Medium | Yes |
@@ -46,7 +54,13 @@ type CyverError struct {
 | `API_NETWORK_ERROR` | Network error | Medium | Yes |
 | `API_TIMEOUT` | Request timeout | Medium | Yes |
 | `VALIDATION_FAILED` | Validation failed | Medium | No |
+| `INVALID_INPUT` | Invalid input | Medium | No |
+| `MISSING_REQUIRED` | Missing required parameter | Medium | No |
+| `OUTPUT_FORMAT_INVALID` | Invalid output format | Low | No |
+| `OUTPUT_RENDER_FAILED` | Output render failed | Low | No |
 | `INTERNAL_ERROR` | Internal error | Critical | No |
+| `NOT_IMPLEMENTED` | Feature not implemented | Critical | No |
+| `UNEXPECTED_TYPE` | Unexpected type error | Critical | No |
 
 ### Error Severity Levels
 
@@ -84,34 +98,34 @@ err := errors.WrapError(originalErr, errors.ErrCodeInternalError, "failed to pro
 func runCommand(cmd *cobra.Command, args []string) {
     // Validate input
     if err := validateInput(args); err != nil {
-        cmd.HandleError(cmd, err)
+        shared.HandleError(cmd, err)
         return
     }
 
     // Make API call
     result, err := apiClient.DoRequest("GET", "/projects", nil, &projects)
     if err != nil {
-        cmd.HandleError(cmd, err)
+        shared.HandleError(cmd, err)
         return
     }
 
     // Process result
     if err := processResult(result); err != nil {
-        cmd.HandleError(cmd, err)
+        shared.HandleError(cmd, err)
         return
     }
 }
 ```
 
-### Retry Logic
+### Retry Logic (Planned)
 
 ```go
-// Simple retry
+// Simple retry (planned implementation)
 result, err := errors.Retry(ctx, func() error {
     return apiClient.DoRequest("GET", "/projects", nil, &projects)
 }, errors.DefaultRetryConfig())
 
-// Retry with custom configuration
+// Retry with custom configuration (planned implementation)
 config := errors.NewRetryConfigBuilder().
     WithMaxAttempts(5).
     WithBaseDelay(time.Second).
@@ -123,17 +137,43 @@ result, err := errors.RetryWithResult(ctx, func() (interface{}, error) {
 }, config)
 ```
 
-### Validation
+### Current Retry Implementation
 
 ```go
-// Validate struct with tags
+// Current retry logic in shared utilities
+if shared.CheckRetryableError(err, attempt, maxAttempts) {
+    // Retry logic with user feedback
+    return true
+}
+```
+
+### Validation (Current Implementation)
+
+```go
+// Current validation in shared utilities
+params := map[string]interface{}{
+    "max-results": maxResultCount,
+    "skip-count":  skipCount,
+    "status":      status,
+}
+
+if err := shared.ValidateInput(params); err != nil {
+    shared.HandleError(cmd, err)
+    return
+}
+```
+
+### Validation (Planned Implementation)
+
+```go
+// Planned struct validation with tags
 type ProjectRequest struct {
     Name        string `validate:"required,min=1,max=100"`
     Description string `validate:"max=500"`
     Status      string `validate:"required,oneof=active inactive"`
 }
 
-// Validate manually
+// Planned manual validation
 validator := errors.NewValidator().
     AddRule(errors.RequiredString("Name")).
     AddRule(errors.StringWithLength("Description", 0, 500))

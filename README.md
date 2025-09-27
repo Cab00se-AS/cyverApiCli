@@ -5,11 +5,14 @@ A comprehensive command-line interface tool for interacting with the Cyver API. 
 ## Features
 
 - **Multi-role Support**: Separate command groups for client and pentester operations
-- **Flexible Output Formats**: Support for table, JSON, and custom output formats
+- **Flexible Output Formats**: Support for table, JSON, short, and custom output formats
 - **Configurable Verbosity**: Multiple verbosity levels for detailed logging
 - **Token Management**: Automatic token refresh and secure storage
 - **API Version Support**: Support for multiple API versions (v2.2)
 - **Interactive Configuration**: Guided setup and configuration management
+- **Comprehensive Error Handling**: Structured error management with retry mechanisms
+- **Input Validation**: Robust validation with user-friendly error messages
+- **Retry Logic**: Automatic retry for transient failures with exponential backoff
 
 ## Installation
 
@@ -25,6 +28,10 @@ cd cyverApiCli
 go mod download
 go build
 ```
+
+### Prerequisites
+- Go 1.23.0 or later
+- Git
 
 ## Quick Start
 
@@ -180,7 +187,7 @@ cyverApiCli config re-auth
 cyverApiCli client list-clients
 
 # Get specific project
-cyverApiCli client get-project-by-id --project-id 12345
+cyverApiCli client get-project-by-id --project-id 550e8400-e29b-41d4-a716-446655440000
 
 # Create a new asset
 cyverApiCli client create-asset --body '{"name": "Web Server", "type": "server"}'
@@ -198,10 +205,10 @@ cyverApiCli pentester projects list
 cyverApiCli pentester findings create --body '{"title": "SQL Injection", "severity": "high"}'
 
 # Update project status
-cyverApiCli pentester projects update-status --project-id 12345 --status "in-progress"
+cyverApiCli pentester projects update-status --project-id 550e8400-e29b-41d4-a716-446655440000 --status "in-progress"
 
 # Get team information
-cyverApiCli pentester teams get --team-id 67890
+cyverApiCli pentester teams get --team-id 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 ```
 
 ## Output Formats
@@ -274,15 +281,35 @@ go test ./...
 ```
 cyverApiCli/
 ├── cmd/                    # Command definitions
+│   ├── client/           # Client-specific commands
 │   ├── pentester/         # Pentester-specific commands
-│   └── shared/            # Shared utilities
+│   ├── shared/            # Shared utilities
+│   ├── error_handler.go   # Error handling utilities
+│   ├── config.go          # Configuration commands
+│   └── root.go            # Root command
 ├── internal/              # Internal packages
 │   ├── api/              # API client implementations
-│   └── config/           # Configuration management
+│   │   └── versions/     # API version implementations
+│   ├── config/           # Configuration management
+│   └── errors/           # Error handling system
 ├── logger/               # Logging utilities
 ├── output/               # Output formatting
+├── docs/                 # Documentation
 └── main.go              # Application entry point
 ```
+
+### Error Handling System
+The project includes a comprehensive error handling system located in `internal/errors/`:
+
+- **`errors.go`**: Core error types and utilities
+- **`retry.go`**: Retry mechanisms with exponential backoff
+- **`validation.go`**: Input validation utilities
+
+### Key Dependencies
+- **Cobra**: CLI framework
+- **Viper**: Configuration management
+- **Zerolog**: Structured logging
+- **go-pretty**: Table formatting
 
 ## Troubleshooting
 
@@ -322,12 +349,28 @@ cyverApiCli -vvv [command]
 
 ## Error Handling
 
-The CLI includes comprehensive error handling with:
+The CLI includes a comprehensive error handling system with:
+
+### Error Types and Codes
+- **Configuration Errors**: `CONFIG_MISSING`, `CONFIG_INVALID`, `CONFIG_FILE_NOT_FOUND`
+- **Authentication Errors**: `AUTH_FAILED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `CREDENTIALS_INVALID`
+- **API Errors**: `API_UNAUTHORIZED`, `API_FORBIDDEN`, `API_NOT_FOUND`, `API_RATE_LIMITED`, `API_SERVER_ERROR`
+- **Validation Errors**: `VALIDATION_FAILED`, `INVALID_INPUT`, `MISSING_REQUIRED`
+- **Internal Errors**: `INTERNAL_ERROR`, `NOT_IMPLEMENTED`, `UNEXPECTED_TYPE`
+
+### Error Severity Levels
+- **Low**: Warnings that don't prevent execution
+- **Medium**: Errors that prevent command execution
+- **High**: Critical errors that may affect system stability
+- **Critical**: Fatal errors that require immediate attention
+
+### Key Features
 - **Structured Error Types**: Standardized error codes and severity levels
-- **Automatic Retry**: Built-in retry logic for transient failures
+- **Automatic Retry**: Built-in retry logic for transient failures with exponential backoff
 - **Input Validation**: Comprehensive validation with clear error messages
 - **User-Friendly Messages**: Clear, actionable error messages for users
 - **Logging Integration**: Detailed logging for debugging and monitoring
+- **Exit Code Mapping**: Appropriate exit codes based on error severity
 
 ### Error Handling Examples
 

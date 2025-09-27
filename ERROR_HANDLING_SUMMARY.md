@@ -2,61 +2,60 @@
 
 ## Overview
 
-I have implemented a comprehensive error handling system for the Cyver API CLI project. This system provides structured error management, retry mechanisms, validation, and user-friendly error reporting.
+This document describes the comprehensive error handling system implemented in the Cyver API CLI project. The system provides structured error management, retry mechanisms, validation, and user-friendly error reporting.
 
-## What Was Implemented
+## Current Implementation
 
 ### 1. Core Error System (`internal/errors/`)
 
 #### `errors.go` - Main Error Types
-- **CyverError**: Base error type with structured fields
-- **ErrorCode**: Standardized error codes (25+ predefined codes)
+- **CyverError**: Base error type with structured fields including:
+  - Code, Message, Details, Severity, Timestamp
+  - Context, Retryable flag, StatusCode, underlying error
+- **ErrorCode**: 25+ standardized error codes covering all scenarios
 - **ErrorSeverity**: Four severity levels (Low, Medium, High, Critical)
-- **ErrorCollection**: For handling multiple errors
+- **ErrorCollection**: For handling multiple errors in batch operations
 - **Helper functions**: Error creation, wrapping, and checking utilities
 
-#### `retry.go` - Retry Mechanism
+#### Error Codes Implemented
+- **Configuration**: `CONFIG_MISSING`, `CONFIG_INVALID`, `CONFIG_FILE_NOT_FOUND`
+- **Authentication**: `AUTH_FAILED`, `TOKEN_EXPIRED`, `TOKEN_INVALID`, `CREDENTIALS_INVALID`, `TWO_FACTOR_REQUIRED`
+- **API**: `API_NOT_FOUND`, `API_BAD_REQUEST`, `API_UNAUTHORIZED`, `API_FORBIDDEN`, `API_RATE_LIMITED`, `API_SERVER_ERROR`, `API_NETWORK_ERROR`, `API_TIMEOUT`
+- **Validation**: `VALIDATION_FAILED`, `INVALID_INPUT`, `MISSING_REQUIRED`
+- **Output**: `OUTPUT_FORMAT_INVALID`, `OUTPUT_RENDER_FAILED`
+- **Internal**: `INTERNAL_ERROR`, `NOT_IMPLEMENTED`, `UNEXPECTED_TYPE`
+
+#### `retry.go` - Retry Mechanism (Planned)
 - **RetryConfig**: Configurable retry settings
 - **Retry()**: Simple retry function
 - **RetryWithResult()**: Retry with return values
 - **RetryConfigBuilder**: Fluent interface for configuration
 - **Exponential backoff** with jitter support
 
-#### `validation.go` - Input Validation
+#### `validation.go` - Input Validation (Planned)
 - **ValidationRule**: Flexible validation rules
 - **Validator**: Struct validation with reflection
 - **Common validation rules**: Required, length, pattern, custom
 - **Struct tag support**: Automatic validation from struct tags
 
-### 2. API Client Improvements (`internal/api/client.go`)
-
-#### Enhanced Error Handling
-- **Input validation** for client creation
-- **Structured error responses** with proper error codes
-- **Network error detection** (timeout, connection issues)
-- **HTTP status code mapping** to error types
-- **Retry support** with configurable policies
-
-#### New Methods
-- `DoRequestWithRetry()`: HTTP requests with retry logic
-- `DoRequestRawWithRetry()`: Raw requests with retry logic
-- Enhanced logging with request/response details
-
-### 3. Command Error Handling (`cmd/`)
+### 2. Command Error Handling (`cmd/`)
 
 #### `error_handler.go` - Command Error Utilities
 - **HandleError()**: Centralized error handling for commands
-- **CheckAPIError()**: API-specific error handling
+- **CheckAPIError()**: API-specific error handling with user-friendly messages
 - **RetryableErrorHandler()**: Retry logic for commands
 - **PrintErrorSummary()**: Batch operation error reporting
+- **ValidateAndHandleErrors()**: Input validation with error handling
 
 #### `shared/error_utils.go` - Shared Utilities
-- **Input validation** functions
-- **Error recovery** suggestions
-- **User-friendly messages** for common errors
-- **Exit code mapping** based on error severity
+- **HandleError()**: Main error handling function for commands
+- **HandleAPIError()**: API-specific error handling
+- **ValidateInput()**: Common input validation functions
+- **CheckRetryableError()**: Retry logic with user feedback
+- **PrintErrorSummary()**: Batch operation error reporting
+- **GetExitCodeForError()**: Exit code mapping based on error severity
 
-### 4. Updated Command Examples
+### 3. Updated Command Examples
 
 #### Before (Original)
 ```go
