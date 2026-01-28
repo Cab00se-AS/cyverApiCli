@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httputil"
+	"os"
 	"strings"
 	"time"
 
@@ -23,6 +24,12 @@ var (
 	verboseLevel int
 	logger       = log.GetLogger(verboseLevel) // initialize with default verbosity 0
 )
+
+// SetVerboseLevel sets the verbosity level for the API client
+func SetVerboseLevel(level int) {
+	verboseLevel = level
+	logger = log.GetLogger(verboseLevel)
+}
 
 // APIClient represents the base API client
 type TokenClient struct {
@@ -175,6 +182,17 @@ func (c *APIClient) logRequestDetails(req *http.Request) error {
 
 	logger.Debug("HTTP Request", "method", req.Method, "url", req.URL.String(), "headers", req.Header)
 	logger.Debug("Request dump", "dump", string(requestDump))
+	
+	// At -vvv (verbosity 3), print raw request data directly to stderr
+	if verboseLevel >= 3 {
+		fmt.Fprintf(os.Stderr, "\n=== RAW HTTP REQUEST ===\n")
+		fmt.Fprintf(os.Stderr, "%s\n", string(requestDump))
+		fmt.Fprintf(os.Stderr, "=======================\n\n")
+	} else {
+		// Debug: log the verbosity level if it's not 3
+		logger.Debug("Verbosity level check", "verboseLevel", verboseLevel, "required", 3)
+	}
+	
 	return nil
 }
 
@@ -222,20 +240,44 @@ func isNetworkError(err error) bool {
 func (c *APIClient) processResponse(resp *http.Response, result interface{}) (interface{}, error) {
 	defer resp.Body.Close()
 
-	// Log response details
-	responseDump, err := httputil.DumpResponse(resp, true)
-	if err != nil {
-		logger.Error("Failed to dump response", "error", err)
-		return nil, errors.WrapError(err, errors.ErrCodeInternalError, "failed to dump response details")
-	}
-	logger.Debug("HTTP Response", "status", resp.StatusCode, "headers", resp.Header)
-	logger.Debug("Response dump", "dump", string(responseDump))
-
 	// Read response body
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		logger.Error("Failed to read response body", "error", err)
 		return nil, errors.WrapError(err, errors.ErrCodeInternalError, "failed to read response body")
+	}
+
+	// Log response details
+	logger.Debug("HTTP Response", "status", resp.StatusCode, "headers", resp.Header)
+	logger.Debug("Response body", "body", string(respBody))
+	
+	// At -vvv (verbosity 3), print raw response data directly to stderr
+	if verboseLevel >= 3 {
+		fmt.Fprintf(os.Stderr, "\n=== RAW HTTP RESPONSE ===\n")
+		fmt.Fprintf(os.Stderr, "Status: %s\n", resp.Status)
+		fmt.Fprintf(os.Stderr, "Headers:\n")
+		for key, values := range resp.Header {
+			for _, value := range values {
+				fmt.Fprintf(os.Stderr, "  %s: %s\n", key, value)
+			}
+		}
+		fmt.Fprintf(os.Stderr, "\nBody:\n")
+		// Try to pretty-print JSON if possible
+		var jsonData interface{}
+		if err := json.Unmarshal(respBody, &jsonData); err == nil {
+			prettyJSON, err := json.MarshalIndent(jsonData, "", "  ")
+			if err == nil {
+				fmt.Fprintf(os.Stderr, "%s\n", string(prettyJSON))
+			} else {
+				fmt.Fprintf(os.Stderr, "%s\n", string(respBody))
+			}
+		} else {
+			fmt.Fprintf(os.Stderr, "%s\n", string(respBody))
+		}
+		fmt.Fprintf(os.Stderr, "========================\n\n")
+	} else {
+		// Debug: log the verbosity level if it's not 3
+		logger.Debug("Verbosity level check", "verboseLevel", verboseLevel, "required", 3)
 	}
 
 	// Check for error response

@@ -6,6 +6,9 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/yourusername/cyverApiCli/cmd/shared"
+	"github.com/yourusername/cyverApiCli/internal/api"
+	"github.com/yourusername/cyverApiCli/internal/api/versions/v2_2"
 	log "github.com/yourusername/cyverApiCli/logger"
 )
 
@@ -34,6 +37,11 @@ Verbosity levels:
 		verboseLevel, _ = cmd.Flags().GetCount("verbose")
 		logger = log.GetLogger(verboseLevel)
 		logger.Info("Starting to execute command", "verbosity", verboseLevel)
+		
+		// Update verbosity in shared package and API client
+		shared.SetVerboseLevel(verboseLevel)
+		api.SetVerboseLevel(verboseLevel)
+		v2_2.SetVerboseLevel(verboseLevel)
 	},
 }
 

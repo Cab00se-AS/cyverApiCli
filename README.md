@@ -6,13 +6,16 @@ A comprehensive command-line interface tool for interacting with the Cyver API. 
 
 - **Multi-role Support**: Separate command groups for client and pentester operations
 - **Flexible Output Formats**: Support for table, JSON, short, and custom output formats
-- **Configurable Verbosity**: Multiple verbosity levels for detailed logging
+- **Configurable Verbosity**: Multiple verbosity levels for detailed logging (including raw request/response with `-vvv`)
 - **Token Management**: Automatic token refresh and secure storage
 - **API Version Support**: Support for multiple API versions (v2.2)
 - **Interactive Configuration**: Guided setup and configuration management
 - **Comprehensive Error Handling**: Structured error management with retry mechanisms
 - **Input Validation**: Robust validation with user-friendly error messages
 - **Retry Logic**: Automatic retry for transient failures with exponential backoff
+- **Findings Import**: Import findings from JSON or Markdown (Obsidian frontmatter) files with field mapping and enum conversion
+- **Evidence Management**: Create evidence attached to findings; import evidence from JSON or Markdown files
+- **Pentester Labels**: List and filter labels by type (Finding, Client, Project, Assets, All)
 
 ## Installation
 
@@ -98,7 +101,12 @@ cyverApiCli
 │   │   ├── create            # Create new finding
 │   │   ├── update            # Update finding
 │   │   ├── delete            # Delete finding
-│   │   └── import            # Import findings
+│   │   ├── import            # Import findings (JSON or Markdown)
+│   │   └── evidence          # Evidence attached to findings
+│   │       ├── create        # Create evidence for a finding
+│   │       └── import        # Import evidence from file (JSON or Markdown)
+│   ├── labels                # Labels Management
+│   │   └── list              # List labels (by type, with pagination)
 │   ├── projects              # Projects Management
 │   │   ├── list              # List projects
 │   │   ├── create            # Create new project
@@ -201,8 +209,27 @@ cyverApiCli client get-findings --output custom --max-columns 6
 # List all projects (pentester view)
 cyverApiCli pentester projects list
 
-# Create a new finding
-cyverApiCli pentester findings create --body '{"title": "SQL Injection", "severity": "high"}'
+# Create a new finding (title, type, severity, status)
+cyverApiCli pentester findings create --project-id <uuid> --title "SQL Injection" --severity high --type Vulnerability --status draft
+
+# On success, the create command prints the finding URL
+
+# Import findings from JSON
+cyverApiCli pentester findings import findings.json --project-id <uuid>
+
+# Import findings from Markdown/Obsidian frontmatter
+cyverApiCli pentester findings import finding.md --project-id <uuid> --file-type markdown
+
+# List labels (default: all types)
+cyverApiCli pentester labels list
+cyverApiCli pentester labels list --type finding --max-results 20 --filter "web"
+
+# Create evidence for a finding
+cyverApiCli pentester findings evidence create --finding-id <uuid> --title "Request capture" --location /login --ip 192.168.1.1
+
+# Import evidence from JSON or Markdown
+cyverApiCli pentester findings evidence import evidence.json --finding-id <uuid>
+cyverApiCli pentester findings evidence import evidence.md --finding-id <uuid> --file-type markdown
 
 # Update project status
 cyverApiCli pentester projects update-status --project-id 550e8400-e29b-41d4-a716-446655440000 --status "in-progress"
@@ -210,6 +237,122 @@ cyverApiCli pentester projects update-status --project-id 550e8400-e29b-41d4-a71
 # Get team information
 cyverApiCli pentester teams get --team-id 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 ```
+
+## Pentester Findings
+
+### Create Finding
+
+Creates a new finding with the given attributes. The `--title` value is sent to the API as `name`.
+
+**Required:** `--project-id`, `--title`
+
+**Flags:**
+- `--title` – Finding title (required; sent as `name` to API)
+- `--description` – Finding description
+- `--type` – `Vulnerability` or `Observation`
+- `--severity` – `critical`, `high`, `medium`, `low`, `info` (API scale: info=0, low=1, medium=2, high=3, critical=4)
+- `--status` – Default `draft`; other values: pending-fix, fixed, accepted, to-review, reviewed, mitigated, partial-fix, false-positive, raised, reopen, acknowledged, identified
+- `--trigger-events` – Whether to trigger events (default: false)
+
+On successful creation (201), the CLI prints the finding URL:  
+`{Host}/App/Projects/Details/{project-id}/Finding/{finding-id}`
+
+### Import Findings
+
+Import findings from structured files. Supports **JSON** and **Markdown (Obsidian frontmatter)**.
+
+**Required:** `--project-id`, file path
+
+**Flags:**
+- `--file-type` – `json` (default) or `markdown` (also accepts `md`, `obsidian`)
+- `--trigger-events` – Whether to trigger events (default: false)
+
+**JSON format:** Array of objects or a single object. Fields map to the API; unknown fields are ignored.  
+Supported fields include: `name`/`title`, `description`, `type`, `status`, `severity`, `code`, `complianceStatus`, `complianceComment`, `impact`, `impactDescription`, `likelihood`, `likelihoodDescription`, `recommendation`, `backgroundInformation`, `cweList`, `cveList`, `mitreAttackTacticsList`, `mitreAttackTechniquesList`, `assetIdList`, `labelIds`, and others from the CreateOrUpdateFindingRequest schema.
+
+**Markdown (Obsidian) format:** Frontmatter between `---` delimiters.  
+- One key-value per line: `key: value`
+- Lists use indented lines starting with `-`
+
+Example Markdown frontmatter:
+```markdown
+---
+title: SQL Injection
+description: Found in login form
+type: Vulnerability
+severity: high
+status: draft
+cweList:
+  - CWE-89
+  - CWE-564
+---
+```
+
+Enum strings (`type`, `status`, `severity`) are converted to the API’s numeric values. Extra properties in the file are ignored.
+
+## Pentester Findings Evidence
+
+Create and import evidence attached to findings (CreateOrEditFindingInstance API).
+
+### Create Evidence
+
+**Command:** `cyverApiCli pentester findings evidence create`
+
+**Required:** `--finding-id`, `--title`
+
+**Flags:**
+- `--finding-id` – Finding ID to attach evidence to (required)
+- `--title` – Evidence title (required)
+- `--asset`, `--location`, `--version`
+- `--ip`, `--hostname`, `--port`, `--protocol`
+- `--issue-details`, `--reproduce`, `--evidence`
+- `--visible-in-report` – Include in report (default: true)
+
+### Import Evidence
+
+Import evidence from a structured file and attach all records to one finding.
+
+**Command:** `cyverApiCli pentester findings evidence import [file-path]`
+
+**Required:** `--finding-id`, file path
+
+**Flags:**
+- `--finding-id` – Finding ID to attach evidence to (required)
+- `--file-type` – `json` (default) or `markdown` (also `md`, `obsidian`)
+
+**JSON:** Array of evidence objects or a single object. Each record must have `title`. Other supported fields: `asset`, `location`, `version`, `ip`, `hostname`, `port`, `protocol`, `issueDetails` / `issue-details`, `reproduce`, `evidence`, `visibleInReport` / `visible-in-report`. Unknown fields are ignored.
+
+**Markdown (Obsidian):** One evidence per file. Frontmatter between `---` with `key: value`; same field names as above.
+
+Example Markdown:
+```markdown
+---
+title: Login request capture
+location: /login
+ip: 192.168.1.1
+hostname: target.example.com
+port: "443"
+protocol: HTTPS
+issue-details: Credentials in cleartext
+reproduce: "1. Intercept traffic\n2. Submit form"
+evidence: Base64 request dump...
+visible-in-report: true
+---
+```
+
+## Pentester Labels
+
+List labels with optional filters and pagination.
+
+**Command:** `cyverApiCli pentester labels list`
+
+**Flags:**
+- `--type` – Label type: `finding`/`0`, `client`/`1`, `project`/`2`, `assets`/`3`, `all`/`4` (default: `all`, i.e. 4)
+- `--max-results` – Max results (default: 10)
+- `--skip-count` – Number to skip (default: 0)
+- `--filter` – Text filter
+- `--output` – `json`, `table`, or `custom` (default: table)
+- `--max-columns` – For custom table (default: 4)
 
 ## Output Formats
 
@@ -254,6 +397,45 @@ cyverApiCli -vvv pentester findings list
 - `-c, --config`: Specify config file path
 - `-v, --verbose`: Increase verbosity level (can be used multiple times)
 - `-h, --help`: Show help information
+
+## Recent Updates and Changes
+
+### Findings
+
+- **Create**
+  - `--title` is sent as `name` in the API request body.
+  - Added `--type` with values `Vulnerability` or `Observation`.
+  - `--status` defaults to `draft`; supports all API status values.
+  - `--severity` limited to `critical`, `high`, `medium`, `low`, `info`. API uses 0–4 (info=0, low=1, medium=2, high=3, critical=4).
+  - On 201 success, prints the finding URL using the `result` field from the response.
+
+- **Import**
+  - New structured file import for creating findings (replaces simple file-path upload).
+  - **File types:** `--file-type json` (default) or `--file-type markdown` (or `md` / `obsidian`).
+  - **JSON:** Accepts an array of finding objects or a single object. Unknown fields are ignored; known fields are mapped to the API (e.g. `title` → `name`). Enums (`type`, `status`, `severity`) can be strings or numbers.
+  - **Markdown:** Parses Obsidian-style frontmatter between `---` delimiters. Supports `key: value` and indented list items with `-`. One finding per file.
+  - Requires `--project-id`. Each finding is created via the pentester findings create API; import reports success/failure counts and prints finding URLs for created items.
+
+- **Update**
+  - Update finding uses `name` (not `title`) in the request body when changing the title.
+
+### Pentester Findings Evidence
+
+- **Create:** `pentester findings evidence create` – Create evidence attached to a finding. Required: `--finding-id`, `--title`. Optional: `--asset`, `--location`, `--version`, `--ip`, `--hostname`, `--port`, `--protocol`, `--issue-details`, `--reproduce`, `--evidence`, `--visible-in-report` (default true). Uses the CreateOrEditFindingInstance app service endpoint.
+- **Import:** `pentester findings evidence import [file-path]` – Import evidence from JSON or Markdown. Requires `--finding-id`. `--file-type json` (default) or `markdown`. JSON: array or single object; each record needs `title`. Markdown: one evidence per file via Obsidian frontmatter. Reports success/failure counts.
+
+### Pentester Labels
+
+- New `pentester labels` command group with `list` subcommand.
+- List labels with `--type`, `--max-results`, `--skip-count`, `--filter`.
+- Type values: `finding` (0), `client` (1), `project` (2), `assets` (3), `all` (4). Default is `all`.
+- Output formats: `json`, `table`, `custom`.
+
+### General
+
+- **Verbosity:** With `-vvv`, raw HTTP request and response (including body) are printed to stderr.
+- **Auth:** 2FA flow only runs when the API responds with `RequiresTwoFactorVerification: true`.
+- **Project details:** `pentester projects get` correctly shows project data from the API’s `Result` field.
 
 ## Development
 
