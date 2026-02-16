@@ -231,6 +231,9 @@ cyverApiCli pentester findings evidence create --finding-id <uuid> --title "Requ
 cyverApiCli pentester findings evidence import evidence.json --finding-id <uuid>
 cyverApiCli pentester findings evidence import evidence.md --finding-id <uuid> --file-type markdown
 
+# Update a finding (title, status, severity, recommendation, CWE list, etc.)
+cyverApiCli pentester findings update <finding-uuid> --title "New title" --status fixed --recommendation "Apply patch" --cwe-list "CWE-89,CWE-564"
+
 # Update project status
 cyverApiCli pentester projects update-status --project-id 550e8400-e29b-41d4-a716-446655440000 --status "in-progress"
 
@@ -289,6 +292,76 @@ cweList:
 ```
 
 Enum strings (`type`, `status`, `severity`) are converted to the API’s numeric values. Extra properties in the file are ignored.
+
+### Update Finding
+
+Update an existing finding by ID. **Before applying changes**, the CLI fetches the current finding and saves a JSON backup (unless `--no-backup`). Finding data and the change set are logged for audit. Only provided flags are sent; at least one update field is required. The API uses the CreateOrUpdateFindingRequest schema; `--title` is sent as `name`.
+
+**Command:** `cyverApiCli pentester findings update [finding-id]`
+
+**Required:** finding-id (positional), at least one update flag below
+
+**Backup and logging:**
+- By default, the current finding is **fetched** via GET, then a **backup** is written to `finding-backups/finding_<id>_<timestamp>.json` (override with `--backup-dir`).
+- Logs include: fetch start, backup path, “Finding data before update” (name, code, projectId, status, severity), “Applying changes” (fields and full change body), and “Successfully updated finding” with field count.
+- Use `--no-backup` to skip the GET and backup (not recommended for production).
+
+**All update fields:**
+
+| Flag | Description | Values / format |
+|------|-------------|-----------------|
+| **Basic** | | |
+| `--title` | Finding title (API: name) | string (max 250) |
+| `--description` | Finding description | string (max 10000) |
+| `--code` | Finding code | string (e.g. F-2025-3508, max 100) |
+| `--type` | Finding type | vulnerability, nonconformity, observation, incident, risk — or 1, 2, 4, 8, 16 |
+| `--status` | Finding status | draft(1), pending-fix(2), fixed(3), ready-retest(4), accepted(5), to-review(6), reviewed(7), mitigated(8), partial-fix(9), false-positive(10), raised(11), reopen(12), acknowledged(13), identified(14) — or 1–14 |
+| `--severity` | Finding severity | info(0), low(1), medium(2), high(3), critical(4) — or 0–4 |
+| **Compliance** | | |
+| `--compliance-status` | PCI compliance status | pass(0), fail(1) — or 0, 1 |
+| `--compliance-comment` | Compliance comment | string |
+| **Risk / impact** | | |
+| `--impact` | Impact score | integer 0–5 (omit flag to leave unchanged) |
+| `--impact-description` | Impact description | string |
+| `--likelihood` | Likelihood score | integer 0–5 (omit flag to leave unchanged) |
+| `--likelihood-description` | Likelihood description | string |
+| **Remediation** | | |
+| `--recommendation` | Remediation recommendation | string |
+| `--background-information` | Background information | string |
+| **Assignment** | | |
+| `--reviewer-id` | Reviewer user ID | UUID |
+| `--project-task-id` | Project task ID | UUID |
+| **CVSS** | | |
+| `--cvss-json` | CVSS object | JSON, e.g. `{"cvss31Vector":"CVSS:3.1/...", "cvss31Score":5.8}` or cvss20/cvss30/cvss40 fields |
+| **Lists (comma-separated)** | | |
+| `--cwe-list` | CWE IDs | e.g. CWE-89,CWE-564 |
+| `--cve-list` | CVE IDs | e.g. CVE-2021-44228 |
+| `--mitre-tactics` | MITRE ATT&CK tactic IDs | e.g. TA0011 |
+| `--mitre-techniques` | MITRE ATT&CK technique IDs | e.g. T1001 |
+| `--mitre-mitigations` | MITRE ATT&CK mitigation IDs | e.g. M1031 |
+| `--vulnerability-type-list` | Vulnerability types | e.g. BypassSomething |
+| `--asset-id-list` | Asset UUIDs | comma-separated UUIDs |
+| `--label-id-list` | Label UUIDs | comma-separated UUIDs |
+| `--project-control-id-list` | Project control UUIDs | comma-separated UUIDs |
+| **External URLs** | | |
+| `--external-url-json` | External URLs | JSON array of `{title, link}`, e.g. `[{"title":"test","link":"https://example.com"}]` |
+| **Backup / audit** | | |
+| `--backup-dir` | Backup directory | default: `finding-backups` |
+| `--no-backup` | Skip fetch and backup | flag (no value) |
+| **Other** | | |
+| `--trigger-events` | Trigger events on update | flag (default: false) |
+
+**Examples:**
+```bash
+# Basic: title, status, severity
+cyverApiCli pentester findings update cfce90c1-1ef1-4307-9796-f88ab4f694e8 --title "Updated title" --status fixed --severity high
+
+# Remediation and CWE, impact
+cyverApiCli pentester findings update <uuid> --recommendation "Apply patch" --cwe-list "CWE-89,CWE-564" --impact 3
+
+# CVSS, external URLs, and project controls
+cyverApiCli pentester findings update <uuid> --cvss-json "{\"cvss31Vector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:L/A:N\", \"cvss31Score\":5.8}" --external-url-json "[{\"title\":\"Ref\",\"link\":\"https://example.com\"}]" --project-control-id-list "uuid1,uuid2"
+```
 
 ## Pentester Findings Evidence
 
@@ -418,6 +491,8 @@ cyverApiCli -vvv pentester findings list
 
 - **Update**
   - Update finding uses `name` (not `title`) in the request body when changing the title.
+  - **Backup and logging:** Before applying changes, the CLI fetches the current finding and saves a JSON backup to `--backup-dir` (default: `finding-backups`). Finding data (name, code, projectId, status, severity) and the full change set are logged. Use `--no-backup` to skip fetch and backup.
+  - **Update fields:** All supported flags are documented in the **Update Finding** section (table and examples): basic (title, description, code, type, status, severity), compliance, risk/impact, remediation, assignment, CVSS, comma-separated lists (cwe, cve, MITRE, vulnerability-type, asset-id, label-id, project-control-id), external-url-json, backup options, and trigger-events. At least one update field is required.
 
 ### Pentester Findings Evidence
 

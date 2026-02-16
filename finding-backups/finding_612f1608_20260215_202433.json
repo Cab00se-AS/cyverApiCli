@@ -1,0 +1,62 @@
+{
+  "success": true,
+  "unAuthorizedRequest": false,
+  "__abp": true,
+  "result": {
+    "id": "612f1608-4d4f-4e14-ac91-34ca0b7db9da",
+    "code": "F-2025-3512",
+    "name": "F-2025-3512 - Vulnerable Local Host Resolution Protocols : 2025-xxx1 - ABCD Pen Test",
+    "description": "Test User Story 5\r\n\r\nThis would align to the \"Finding\" level in the Portal.\r\n\r\nThis would align to \"F-2025-3512 Vulnerable Local Host Resolution Protocols : 2025-xxx1 - ABCD Pen Test\" for N",
+    "impact": 2,
+    "impactDescription": "test",
+    "likelihood": 2,
+    "likelihoodDescription": "test",
+    "type": 1,
+    "status": 2,
+    "severity": 2,
+    "occurrence": 1,
+    "complianceStatus": 0,
+    "complianceComment": "",
+    "recommendation": "This is a test of the update function for the CycverCLI tool.",
+    "backgroundInformation": "tes",
+    "cvss": {
+      "cvss31Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:L/A:N",
+      "cvss31Score": 5.8
+    },
+    "projectName": "2025-xxx1 - ABCD Pen Test",
+    "projectId": "c9b421c6-0eb2-4264-8771-6f6e1b8f4a98",
+    "clientName": "Nucor Corporation",
+    "clientId": "ed2dcc64-d927-499c-8ade-33207e681750",
+    "reporterName": "Kiley Baldauf",
+    "reporterId": "1a4e8334-13ca-45c0-b41f-f73f155cd80c",
+    "creationTime": "2025-04-15T15:41:02.632471Z",
+    "vulnerabilityTypeList": [
+      "BypassSomething"
+    ],
+    "cweList": [
+      "CWE-1"
+    ],
+    "mitreAttackTacticsList": [
+      "TA0011"
+    ],
+    "mitreAttackTechniquesList": [
+      "T1001"
+    ],
+    "mitreAttackMitigationsList": [
+      "M1031"
+    ],
+    "labelList": [
+      {
+        "id": "914e85ab-fcdc-4d80-ba3b-1da68d1b5b79",
+        "text": "INT",
+        "type": 0
+      }
+    ],
+    "externalUrlList": [
+      {
+        "title": "test",
+        "link": "test"
+      }
+    ]
+  }
+}

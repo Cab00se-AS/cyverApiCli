@@ -850,13 +850,59 @@ func PrintFindingTable(finding interface{}, verboseLevel int) error {
 		val = val.Elem()
 	}
 
+	// Unwrap AjaxResponse: if this is a wrapper with Result (e.g. FindingDtoAjaxResponse), use Result as the finding
+	if resultField := val.FieldByName("Result"); resultField.IsValid() && resultField.Kind() == reflect.Ptr && !resultField.IsNil() {
+		val = resultField.Elem()
+	}
+
 	// Extract finding fields
 	var id, name, description, projectID string
 	var severity, status int
 
+	// Helper to get string from a reflect Value (handles *string and string)
+	getString := func(f reflect.Value) string {
+		if !f.IsValid() {
+			return ""
+		}
+		if f.Kind() == reflect.Ptr {
+			if f.IsNil() {
+				return ""
+			}
+			f = f.Elem()
+		}
+		if f.Kind() == reflect.String {
+			return f.String()
+		}
+		return ""
+	}
+
+	// Helper to get int from a reflect Value (handles *int types and enums)
+	getInt := func(f reflect.Value) int {
+		if !f.IsValid() {
+			return 0
+		}
+		if f.Kind() == reflect.Ptr {
+			if f.IsNil() {
+				return 0
+			}
+			f = f.Elem()
+		}
+		switch f.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return int(f.Int())
+		case reflect.Float64, reflect.Float32:
+			return int(f.Float())
+		}
+		return 0
+	}
+
 	// Handle both map[string]interface{} and struct cases
 	switch findingVal := finding.(type) {
 	case map[string]interface{}:
+		// If map has nested "result", use that as the finding data
+		if resultObj, ok := findingVal["result"].(map[string]interface{}); ok {
+			findingVal = resultObj
+		}
 		if v, ok := findingVal["id"]; ok {
 			id = fmt.Sprintf("%v", v)
 		}
@@ -884,25 +930,13 @@ func PrintFindingTable(finding interface{}, verboseLevel int) error {
 			projectID = fmt.Sprintf("%v", v)
 		}
 	default:
-		// Try to access struct fields
-		if idField := val.FieldByName("ID"); idField.IsValid() {
-			id = idField.String()
-		}
-		if nameField := val.FieldByName("Name"); nameField.IsValid() {
-			name = nameField.String()
-		}
-		if descField := val.FieldByName("Description"); descField.IsValid() {
-			description = descField.String()
-		}
-		if severityField := val.FieldByName("Severity"); severityField.IsValid() {
-			severity = int(severityField.Int())
-		}
-		if statusField := val.FieldByName("Status"); statusField.IsValid() {
-			status = int(statusField.Int())
-		}
-		if projectIDField := val.FieldByName("ProjectID"); projectIDField.IsValid() {
-			projectID = projectIDField.String()
-		}
+		// Try to access struct fields (val may be unwrapped Result)
+		id = getString(val.FieldByName("ID"))
+		name = getString(val.FieldByName("Name"))
+		description = getString(val.FieldByName("Description"))
+		severity = getInt(val.FieldByName("Severity"))
+		status = getInt(val.FieldByName("Status"))
+		projectID = getString(val.FieldByName("ProjectID"))
 	}
 
 	if id == "" {
