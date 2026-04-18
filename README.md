@@ -10,6 +10,9 @@ A comprehensive command-line interface tool for interacting with the Cyver API. 
 - **Token Management**: Automatic token refresh and secure storage
 - **API Version Support**: Support for multiple API versions (v2.2)
 - **Interactive Configuration**: Guided setup and configuration management
+- **Named profiles (AWS-style)**: Multiple API endpoints and credentials in one YAML file (`profiles`, `current_profile`), like `[default]` and `[profile dev-user]` in `~/.aws/config`; selectable via `--profile`, `CYVER_PROFILE`, or legacy `instances` / `CYVER_INSTANCE`
+- **HTTP User-Agent**: Outbound requests use a desktop Chrome-style `User-Agent` with a **CyverCliTool** product token (for example `… Safari/537.36 CyverCliTool/1.0`) so traffic can be distinguished from real browsers while keeping a conventional browser prefix
+- **Direct HTTP (`customUrl`)**: Optional `GET`/`POST`/… against a path under the configured base URL or a full URL, using the same auth and `User-Agent` as the main client
 - **Comprehensive Error Handling**: Structured error management with retry mechanisms
 - **Input Validation**: Robust validation with user-friendly error messages
 - **Retry Logic**: Automatic retry for transient failures with exponential backoff
@@ -59,6 +62,7 @@ cyverApiCli --help
 cyverApiCli
 ├── apiAuth                    # API Authentication
 │   └── getToken              # Get authentication token
+├── customUrl                 # Direct HTTP request (configured base URL or full URL)
 ├── client                    # Client Operations
 │   ├── get-client-info       # Get client information
 │   ├── update-client-info    # Update client information
@@ -84,7 +88,11 @@ cyverApiCli
 │   ├── init                  # Initialize CLI configuration
 │   ├── view                  # View current configuration
 │   ├── refresh-token         # Refresh access token
-│   └── re-auth               # Re-authenticate
+│   ├── re-auth               # Re-authenticate
+│   ├── update                # Patch config values (flags)
+│   └── profile               # Named profiles (alias: instance)
+│       ├── list              # List profile names
+│       └── use               # Set default profile (current_profile)
 ├── pentester                 # Pentester Operations
 │   ├── clients               # Client Management (Pentester View)
 │   │   ├── list              # List pentester clients
@@ -159,6 +167,8 @@ The CLI uses a YAML configuration file located at `~/.cyverApiCli.yaml`. Initial
 cyverApiCli config init
 ```
 
+If the file **already exists**, you are prompted to **O**verwrite the whole file, **A**dd or replace a single named profile (other settings stay), or **C**ancel. Use **A** to add another environment without losing your current config.
+
 ### Configuration Options
 - **API Base URL**: The base URL for the Cyver API
 - **API Version**: Supported versions (v2.2)
@@ -170,7 +180,88 @@ cyverApiCli config init
 cyverApiCli config view
 ```
 
+When you use named profiles, `config view` also shows the default profile, the active profile for the current run, and the list of configured names.
+
+### Named profiles (AWS-style, multi-environment)
+
+This mirrors the idea of **`~/.aws/config`**: a **`[default]`** profile and additional **`[profile name]`** sections. In YAML you use a **`profiles`** map and **`current_profile`** (preferred). The legacy **`instances`** map and **`current_instance`** key are still **read** for backward compatibility.
+
+**YAML shape (example):**
+
+```yaml
+current_profile: default
+
+profiles:
+  default:
+    api:
+      version: latest
+      base_url: https://api.cyver.io
+      api_key: ""
+    auth:
+      email: you@example.com
+    token:
+      access_token: "..."
+      refresh_token: "..."
+      expireInSeconds: 3600
+      refresh_expires_in: ...
+      token_created_at: "..."
+      refresh_token_created_at: "..."
+  dev-user:
+    api:
+      version: latest
+      base_url: https://other.example.com
+      api_key: ""
+    auth:
+      email: you@example.com
+    token: { ... }
+```
+
+- **Flat configs** with only top-level `api`, `auth`, and `token` (no `profiles` / `instances`) behave as before.
+- **Which profile is used:** **`--profile` / `-p`** (or deprecated **`--instance` / `-i`**) overrides for one command. Otherwise the default comes from **`current_profile`** in the file, or **`CYVER_PROFILE`**, with legacy **`current_instance`** / **`CYVER_INSTANCE`** still honored.
+
+The CLI merges the selected profile into the top-level `api`, `auth`, and `token` keys each run. Token and auth updates are stored under the active profile and mirrored to the top-level keys for that session.
+
+**Commands:**
+
+```bash
+cyverApiCli config profile list
+cyverApiCli config profile use dev-user
+# "config instance …" still works as an alias for "config profile …"
+```
+
+**Examples:**
+
+```bash
+cyverApiCli -p dev-user pentester projects list
+export CYVER_PROFILE=dev-user
+cyverApiCli pentester projects list
+```
+
+**Update values without re-init:**
+
+```bash
+cyverApiCli config update --base-url https://api.cyver.io
+cyverApiCli config update --for-profile dev-user --base-url https://other.example.com
+```
+
+Only flags you pass are written. Useful flags:
+
+- **Profile scope:** `--for-profile <name>` (deprecated alias: `--for-instance`)
+- **API:** `--api-version`, `--base-url`, `--api-key` (use `--api-key ""` to clear a stored key)
+- **Auth:** `--auth-email` (stored email for token re-authentication)
+- **Global (not per profile):** `--proxy-url`, `--proxy-user`, `--proxy-password`, `--log-level`, `--log-file`, `--output-format`, `--output-color`, `--client-timeout` (seconds, 1–300)
+
+Run `cyverApiCli config update --help` for the full flag list.
+
+### Outbound HTTP (User-Agent)
+
+All normal API calls and the **`customUrl`** direct HTTP command send a shared **User-Agent** string: a typical **Chrome on Windows** token sequence, followed by **`CyverCliTool/1.0`**, defined in `internal/api/useragent.go`. Servers or proxies can key off `CyverCliTool` for analytics or allowlists without dropping browser-like compatibility.
+
 ## Authentication
+
+### Password login and stored tokens
+
+**Password-based** flows (`apiAuth getToken`, `config init` when no API key is set, `config re-auth`) call **`/api/TokenAuth/Authenticate`** (and related **`SendTwoFactorAuthCode`** / **`RefreshToken`**) **without** sending a stored access token from the config file. The CLI still merges profile tokens into viper for normal API calls, but login and refresh must not attach an unrelated JWT (for example from another profile or legacy top-level `token.*` keys) to a different **base URL**, which would otherwise often produce **403** or a generic **“Invalid username or password”** even when the password is correct.
 
 ### Getting a Token
 ```bash
@@ -468,10 +559,24 @@ cyverApiCli -vvv pentester findings list
 ## Global Flags
 
 - `-c, --config`: Specify config file path
+- `-p, --profile`: Use a named profile for this run (overrides `CYVER_PROFILE` / `current_profile`)
+- `-i, --instance`: Deprecated; same as `--profile`
 - `-v, --verbose`: Increase verbosity level (can be used multiple times)
 - `-h, --help`: Show help information
 
+**Environment:** `CYVER_PROFILE` is bound to `current_profile`. `CYVER_INSTANCE` is bound to legacy `current_instance`. Precedence for the active profile: **`--profile` / `--instance`**, then `current_profile` (including `CYVER_PROFILE`), then `current_instance` (including `CYVER_INSTANCE`).
+
 ## Recent Updates and Changes
+
+### Configuration (AWS-style profiles)
+
+- **`profiles` map** in `~/.cyverApiCli.yaml`: each profile name holds `api`, and optionally `auth` and `token` (like `[default]` / `[profile dev-user]` in AWS config).
+- **`current_profile`**: default profile; set with `cyverApiCli config profile use <name>`.
+- **Legacy `instances` / `current_instance`**: still read; new writes prefer `profiles` / `current_profile`.
+- **`config profile list`** / **`config profile use`** (alias **`config instance`**).
+- **Global `--profile` / `-p`** (legacy **`--instance` / `-i`**).
+- **`CYVER_PROFILE`** / **`CYVER_INSTANCE`** for default profile selection.
+- **`config update`**: patch YAML via flags without re-running `config init` (`--for-profile` / `--for-instance`, `--base-url`, `--api-key`, `--api-version`, `--auth-email`, proxy, logging, output, client timeout). See the **Update values without re-init** subsection under **Named profiles** and `config update --help`.
 
 ### Findings
 
@@ -508,8 +613,10 @@ cyverApiCli -vvv pentester findings list
 
 ### General
 
-- **Verbosity:** With `-vvv`, raw HTTP request and response (including body) are printed to stderr.
-- **Auth:** 2FA flow only runs when the API responds with `RequiresTwoFactorVerification: true`.
+- **Verbosity:** With `-vvv`, raw HTTP request and response (including body) are printed to stderr. Avoid `-vvv` when typing secrets; bodies and debug lines may contain sensitive data.
+- **Auth:** MFA / 2FA runs only when the API returns `requiresTwoFactorVerification: true` on the authenticate result (password-only sandboxes are not treated as MFA). The send-code step uses `twoFactorAuthProviders` from the API when present, otherwise Google Authenticator. Re-authentication paths treat a missing authenticate `result` as an error instead of assuming MFA.
+- **HTTP User-Agent:** Chrome-style desktop string plus **`CyverCliTool/1.0`** on outbound API requests for tracking.
+- **TokenAuth HTTP headers:** `Authenticate`, `SendTwoFactorAuthCode`, and `RefreshToken` do **not** receive a `Authorization: Bearer` header from stored config, so switching profiles or hosts does not accidentally send another environment’s JWT on login.
 - **Project details:** `pentester projects get` correctly shows project data from the API’s `Result` field.
 
 ## Development
@@ -576,11 +683,13 @@ The project includes a comprehensive error handling system located in `internal/
    - Ensure your credentials are correct
    - Check if 2FA is enabled and provide the code
    - Verify your account has the necessary permissions
+   - If password login to a **new base URL** or profile failed before an update: an old access token in the file could have been sent on `TokenAuth/Authenticate`; current builds omit that. On an older binary, clear or ignore conflicting top-level `token.*` keys or upgrade the CLI
 
 2. **Configuration Issues**
    - Run `cyverApiCli config init` to recreate configuration
    - Check file permissions on `~/.cyverApiCli.yaml`
    - Verify API base URL is correct
+   - If you use named profiles, confirm `profiles.<name>` (or legacy `instances.<name>`) exists and `current_profile` / `current_instance` is set (or pass `-p` / `CYVER_PROFILE`). Run `cyverApiCli config profile list` to see names
 
 3. **Token Expiration**
    - Use `cyverApiCli config refresh-token` to refresh

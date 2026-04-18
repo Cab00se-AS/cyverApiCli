@@ -138,28 +138,29 @@ func (c *APIClient) createRequest(method, url string, bodyReader io.Reader) (*ht
 func (c *APIClient) setRequestHeaders(req *http.Request) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("User-Agent", "CyverAPI-CLI/1.0")
+	req.Header.Set("User-Agent", ChromeUserAgent)
 
-	// Check if this is an authentication endpoint that doesn't require auth headers
-	isAuthEndpoint := strings.Contains(req.URL.Path, "/api/TokenAuth/Authenticate") ||
-		strings.Contains(req.URL.Path, "/api/TokenAuth/SendTwoFactorAuthCode")
+	// TokenAuth login/refresh must not send a stored JWT from viper: merged config often still has
+	// token.access_token from another profile or legacy root keys. Sending that Bearer to a
+	// different host makes the API reject the request (commonly 403 / invalid credentials).
+	tokenAuthNoStoredBearer := strings.Contains(req.URL.Path, "/api/TokenAuth/Authenticate") ||
+		strings.Contains(req.URL.Path, "/api/TokenAuth/SendTwoFactorAuthCode") ||
+		strings.Contains(req.URL.Path, "/api/TokenAuth/RefreshToken")
 
 	// Check if API key is provided
 	if c.APIKey != "" {
 		logger.Debug("Setting X-API-Key header")
 		req.Header.Set("X-API-Key", c.APIKey)
+	} else if tokenAuthNoStoredBearer {
+		logger.Debug("TokenAuth endpoint - omitting stored Bearer (credentials in body or refresh in query)")
 	} else {
-		// If API key is blank, try to load access token from viper config
 		accessToken := viper.GetString("token.access_token")
 		if accessToken != "" {
 			logger.Debug("Setting Authorization Bearer header")
 			req.Header.Set("Authorization", "Bearer "+accessToken)
-		} else if !isAuthEndpoint {
-			// Only require authentication for non-auth endpoints
+		} else {
 			logger.Warn("No API key or access token found for authentication")
 			return errors.NewCyverError(errors.ErrCodeAuthFailed, "no authentication credentials found", nil)
-		} else {
-			logger.Debug("Authentication endpoint - proceeding without auth headers")
 		}
 	}
 

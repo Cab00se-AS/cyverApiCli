@@ -210,7 +210,7 @@ func authenticateV2_2(client *v2_2.Client, params v2_2.AuthenticateModel) (*v2_2
 		return nil, err
 	}
 
-	// Check if 2FA is required
+	// MFA only when the API explicitly requires it (do not treat nil/empty result as MFA — fixes non-MFA sandboxes)
 	if response.Result.RequiresTwoFactorVerification {
 		log.GetLogger(verboseLevel).Info("Two-factor authentication required")
 
@@ -220,10 +220,13 @@ func authenticateV2_2(client *v2_2.Client, params v2_2.AuthenticateModel) (*v2_2
 			return nil, fmt.Errorf("user ID is required for 2FA but was not provided in response")
 		}
 
+		provider := twoFactorProviderForSend(response.Result.TwoFactorAuthProviders)
+		log.GetLogger(verboseLevel).Info("Using two-factor provider from API", "provider", provider)
+
 		// Send 2FA code request
 		twoFactorRequest := v2_2.SendTwoFactorAuthCodeModel{
 			UserId:   userId,
-			Provider: stringPtr("GoogleAuthenticator"), // Default to Google Authenticator
+			Provider: stringPtr(provider),
 		}
 
 		_, err = client.TokenAuthOps.ApiTokenauthSendtwofactorauthcodePost(twoFactorRequest)
@@ -279,6 +282,16 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+// twoFactorProviderForSend picks the provider for SendTwoFactorAuthCode from the API response.
+// When the server does not require 2FA or lists no providers, this is only called from the MFA branch;
+// if no providers are listed, Google Authenticator is used as the default (legacy behavior).
+func twoFactorProviderForSend(providers []string) string {
+	if len(providers) > 0 {
+		return providers[0]
+	}
+	return v2_2.TwoFactorMethodAuthenticator
+}
+
 // handleClientSwitch processes the client version and performs authentication
 func handleClientSwitch(clientVersion interface{}, cmd *cobra.Command) error {
 	switch client := clientVersion.(type) {
@@ -317,18 +330,18 @@ func handleClientSwitch(clientVersion interface{}, cmd *cobra.Command) error {
 
 		// Handle pointer types safely
 		if tokenAuth.AccessToken != nil {
-			viper.Set("token.access_token", *tokenAuth.AccessToken)
+			SetTokenViperKey("access_token", *tokenAuth.AccessToken)
 		}
 		if tokenAuth.RefreshToken != nil {
-			viper.Set("token.refresh_token", *tokenAuth.RefreshToken)
+			SetTokenViperKey("refresh_token", *tokenAuth.RefreshToken)
 		}
-		viper.Set("token.expireInSeconds", tokenAuth.ExpireInSeconds)
-		viper.Set("token.refresh_expires_in", tokenAuth.RefreshTokenExpireInSeconds)
+		SetTokenViperKey("expireInSeconds", tokenAuth.ExpireInSeconds)
+		SetTokenViperKey("refresh_expires_in", tokenAuth.RefreshTokenExpireInSeconds)
 
 		// Set token creation timestamps
 		now := time.Now()
-		viper.Set("token.token_created_at", now.Format(time.RFC3339))
-		viper.Set("token.refresh_token_created_at", now.Format(time.RFC3339))
+		SetTokenViperKey("token_created_at", now.Format(time.RFC3339))
+		SetTokenViperKey("refresh_token_created_at", now.Format(time.RFC3339))
 		if err := viper.WriteConfig(); err != nil {
 			log.GetLogger(verboseLevel).Error("Error writing token to config file", "error", err)
 			return err

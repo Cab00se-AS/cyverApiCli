@@ -35,7 +35,7 @@ var getFindingsCmd = &cobra.Command{
 				return
 			}
 
-			findings, err := client.ClientOps.GetFindings(projectID, maxResultCount, skipCount)
+			findings, err := client.ClientOps.ApiV22ClientFindingsGet(projectID, maxResultCount, skipCount)
 			if err != nil {
 				shared.HandleError(cmd, err)
 				return
@@ -114,7 +114,7 @@ var getFindingByIDCmd = &cobra.Command{
 				return
 			}
 
-			finding, err := client.ClientOps.GetFindingByID(findingID, includeEvidence)
+			finding, err := client.ClientOps.ApiV22ClientFindingsByIdGet(findingID, includeEvidence)
 			if err != nil {
 				shared.HandleError(cmd, err)
 				return
@@ -173,7 +173,7 @@ var setFindingStatusCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run: func(cmd *cobra.Command, args []string) {
 		findingID := args[0]
-		triggerEvents, _ := cmd.Flags().GetInt("trigger-events")
+		triggerEvents, _ := cmd.Flags().GetBool("trigger-events")
 		statusBodyJSON, _ := cmd.Flags().GetString("status-body")
 
 		if statusBodyJSON == "" {
@@ -202,7 +202,7 @@ var setFindingStatusCmd = &cobra.Command{
 				return
 			}
 
-			err := client.ClientOps.SetFindingStatus(findingID, triggerEvents, statusBody)
+			err := client.ClientOps.ApiV22ClientFindingsByIdPost(findingID, triggerEvents, statusBody)
 			if err != nil {
 				shared.HandleError(cmd, err)
 				return
@@ -231,7 +231,7 @@ func init() {
 	getFindingByIDCmd.Flags().Int("max-columns", 4, "Maximum number of columns for custom table output")
 
 	// Add flags to set finding status command
-	setFindingStatusCmd.Flags().Int("trigger-events", 0, "Trigger events flag")
+	setFindingStatusCmd.Flags().Bool("trigger-events", false, "Trigger events when updating status")
 	setFindingStatusCmd.Flags().String("status-body", "", "JSON body for status update (required)")
 
 	// Commands will be added to findings command group via InitClientCommands

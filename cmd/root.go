@@ -37,7 +37,12 @@ Verbosity levels:
 		verboseLevel, _ = cmd.Flags().GetCount("verbose")
 		logger = log.GetLogger(verboseLevel)
 		logger.Info("Starting to execute command", "verbosity", verboseLevel)
-		
+
+		if err := ResolveAndApplyProfile(cmd); err != nil {
+			logger.Error("Invalid API profile", "error", err)
+			os.Exit(1)
+		}
+
 		// Update verbosity in shared package and API client
 		shared.SetVerboseLevel(verboseLevel)
 		api.SetVerboseLevel(verboseLevel)
@@ -60,6 +65,10 @@ func init() {
 	// Add verbose flag that can be specified multiple times
 	rootCmd.PersistentFlags().CountP("verbose", "v", "increase verbosity level")
 
+	// AWS-style profile selection (like AWS_PROFILE / ~/.aws/config)
+	rootCmd.PersistentFlags().StringP("profile", "p", "", "use this named profile (overrides CYVER_PROFILE / current_profile)")
+	rootCmd.PersistentFlags().StringP("instance", "i", "", "deprecated: same as --profile")
+
 	// Initialize viper for configuration
 	configPath := ""
 	if configFile, _ := rootCmd.PersistentFlags().GetString("config"); configFile != "" {
@@ -75,6 +84,8 @@ func init() {
 
 	viper.SetConfigFile(configPath)
 	viper.SetConfigType("yaml")
+	_ = viper.BindEnv("current_profile", "CYVER_PROFILE")
+	_ = viper.BindEnv("current_instance", "CYVER_INSTANCE")
 
 	// Log config initialization
 	logger.Info("Initializing config", "path", configPath)
