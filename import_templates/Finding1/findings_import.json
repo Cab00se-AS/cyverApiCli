@@ -1,0 +1,56 @@
+{
+  "title": "Example: SQL injection in search parameter",
+  "code": "",
+  "description": "The search endpoint reflects user input into a SQL query without parameterization.",
+  "type": "vulnerability",
+  "status": "draft",
+  "severity": "high",
+  "recommendation": "Use parameterized queries or an ORM; validate and encode all inputs.",
+  "backgroundInformation": "Discovered during authenticated testing of the reporting module.",
+  "impact": 4,
+  "impactDescription": "Full read access to the application database.",
+  "likelihood": 3,
+  "likelihoodDescription": "Exploitable with a normal user account.",
+  "complianceStatus": 1,
+  "complianceComment": "Maps to OWASP A03:2021 – Injection.",
+  "cweList": ["CWE-89"],
+  "cveList": [],
+  "mitreAttackTacticsList": [],
+  "mitreAttackTechniquesList": [],
+  "mitreAttackMitigationsList": [],
+  "assetIdList": [],
+  "labelIdList": [],
+  "cvss": {
+    "cvss31Vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:N/S:U/C:H/I:H/A:N",
+    "cvss31Score": 8.1
+  },
+  "evidences": [
+    {
+      "Guid": "",
+      "Title": "SQL error screenshot",
+      "Asset": "",
+      "Location": "GET /api/reports/search?q=test%27",
+      "Version": "",
+      "Ip": "",
+      "Hostname": "",
+      "Port": "",
+      "Protocol": "",
+      "IssueDetails": "SQL exception text is reflected in response.",
+      "Reproduce": "1. Authenticate to the app.\n2. Browse to Reports search.\n3. Submit test' in q parameter.",
+      "Evidence": "See attached screenshot and request artifact.",
+      "IsVisibleInReport": "true",
+      "EvidenceFiles": [
+        {
+          "FileName": "SqlInjection.png",
+          "FileType": "image/png",
+          "Description": null,
+          "FileToken": "",
+          "FileSize": 0,
+          "Type": 1,
+          "VisibleToClient": false
+        }
+      ],
+      "NewEvidenceFiles": []
+    }
+  ]
+}

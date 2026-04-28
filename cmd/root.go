@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/yourusername/cyverApiCli/cmd/shared"
 	"github.com/yourusername/cyverApiCli/internal/api"
+	"github.com/yourusername/cyverApiCli/internal/api/services"
 	"github.com/yourusername/cyverApiCli/internal/api/versions/v2_2"
 	log "github.com/yourusername/cyverApiCli/logger"
 )
@@ -46,6 +47,7 @@ Verbosity levels:
 		// Update verbosity in shared package and API client
 		shared.SetVerboseLevel(verboseLevel)
 		api.SetVerboseLevel(verboseLevel)
+		services.SetVerboseLevel(verboseLevel)
 		v2_2.SetVerboseLevel(verboseLevel)
 	},
 }
@@ -67,7 +69,6 @@ func init() {
 
 	// AWS-style profile selection (like AWS_PROFILE / ~/.aws/config)
 	rootCmd.PersistentFlags().StringP("profile", "p", "", "use this named profile (overrides CYVER_PROFILE / current_profile)")
-	rootCmd.PersistentFlags().StringP("instance", "i", "", "deprecated: same as --profile")
 
 	// Initialize viper for configuration
 	configPath := ""

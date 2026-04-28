@@ -10,7 +10,7 @@ import (
 	log "github.com/yourusername/cyverApiCli/logger"
 )
 
-// activeProfileResolved is the profile name from --profile, env, or current_profile/current_instance in the file.
+// activeProfileResolved is the profile name from --profile, or current_profile / current_instance (and env overrides) in the file.
 // Empty means legacy flat config (only top-level api/auth/token).
 var activeProfileResolved string
 
@@ -133,14 +133,10 @@ func ApplyInstanceProfile(alias string) error {
 	return ApplyProfile(alias)
 }
 
-// ResolveActiveProfileName resolves: --profile, --instance, CYVER_PROFILE / current_profile, CYVER_INSTANCE / current_instance.
+// ResolveActiveProfileName resolves: --profile, then current_profile / CYVER_PROFILE, then legacy current_instance / CYVER_INSTANCE.
 func ResolveActiveProfileName(cmd *cobra.Command) string {
 	if cmd != nil {
 		p, _ := cmd.Root().PersistentFlags().GetString("profile")
-		if p != "" {
-			return p
-		}
-		p, _ = cmd.Root().PersistentFlags().GetString("instance")
 		if p != "" {
 			return p
 		}
@@ -284,16 +280,12 @@ func SetAuthFieldForInstance(field string, value interface{}, forInstance string
 	SetAuthFieldForProfile(field, value, forInstance)
 }
 
-// EffectiveProfileForConfigUpdate resolves scope for config update: --for-profile / --for-instance, else active profile.
+// EffectiveProfileForConfigUpdate resolves scope for config update: --for-profile, else active profile.
 func EffectiveProfileForConfigUpdate(cmd *cobra.Command) string {
 	if cmd != nil {
 		fp, _ := cmd.Flags().GetString("for-profile")
 		if strings.TrimSpace(fp) != "" {
 			return fp
-		}
-		fi, _ := cmd.Flags().GetString("for-instance")
-		if strings.TrimSpace(fi) != "" {
-			return fi
 		}
 	}
 	return activeProfileResolved

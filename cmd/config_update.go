@@ -15,7 +15,7 @@ var updateConfigCmd = &cobra.Command{
 	Short: "Update values in the CLI config file",
 	Long: `Update settings in the YAML config without re-running the full init wizard.
 
-API and auth fields can be scoped to a named profile: use --for-profile, or rely on global --profile / CYVER_PROFILE / current_profile (legacy --for-instance and instances map still work).
+API and auth fields can be scoped to a named profile: use --for-profile, or rely on global --profile / CYVER_PROFILE / current_profile (legacy instances map in YAML still works).
 Proxy, logging, output, and client settings are always global.
 
 Examples:
@@ -33,7 +33,6 @@ Examples:
 
 func init() {
 	updateConfigCmd.Flags().String("for-profile", "", "scope api and auth flags to this profile (default: global --profile / CYVER_PROFILE / current_profile)")
-	updateConfigCmd.Flags().String("for-instance", "", "deprecated: same as --for-profile")
 	updateConfigCmd.Flags().String("api-version", "", "API version (v2.2 or latest)")
 	updateConfigCmd.Flags().String("base-url", "", "API base URL (https://...)")
 	updateConfigCmd.Flags().String("api-key", "", "API key (use empty string with --api-key \"\" to clear)")

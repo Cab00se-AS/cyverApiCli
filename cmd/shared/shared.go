@@ -1,8 +1,12 @@
 package shared
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/spf13/viper"
 	"github.com/yourusername/cyverApiCli/internal/api"
+	"github.com/yourusername/cyverApiCli/internal/api/services"
 	"github.com/yourusername/cyverApiCli/internal/api/versions"
 	"github.com/yourusername/cyverApiCli/internal/api/versions/v2_2"
 	"github.com/yourusername/cyverApiCli/internal/errors"
@@ -200,6 +204,25 @@ func GetVersionedApiClient() interface{} {
 	v2_2.SetVerboseLevel(VerboseLevel)
 	
 	return client
+}
+
+// NewNonSupportedServiceClient returns a client for non-documented /api/services (and related) endpoints
+// using the global config loader and viper token/timeout.
+func NewNonSupportedServiceClient() (*services.NonSupportedServiceClient, error) {
+	if configLoader == nil {
+		return nil, fmt.Errorf("config loader not set")
+	}
+	_, baseURL, _, err := configLoader.LoadConfig()
+	if err != nil {
+		return nil, err
+	}
+	timeoutSeconds := viper.GetInt("client.timeout")
+	if timeoutSeconds <= 0 {
+		timeoutSeconds = 30
+	}
+	client := services.NewNonSupportedServiceClient(baseURL, time.Duration(timeoutSeconds)*time.Second)
+	client.Token = viper.GetString("token.access_token")
+	return client, nil
 }
 
 // GetLogger returns a logger with the current verbose level

@@ -1,6 +1,6 @@
 package v2_2
 
-// This file contains Go structs generated from the models.json schema
+// This file contains Go structs generated from the Full_api.json schema
 // Generated structs for API v2.2 models
 // Verified structs: 120+ out of ~150+ total structs (verified against JSON schemas on September 26, 2025)
 // Updated with Misc.json structures on September 26, 2025
@@ -1054,6 +1054,7 @@ type CreateOrUpdateFindingEvidenceRequest struct {
 	Hostname                 *string                   `json:"hostname,omitempty"`
 	Port                     *string                   `json:"port,omitempty"`
 	Protocol                 *string                   `json:"protocol,omitempty"`
+	AssetID                  *string                   `json:"assetId,omitempty"`
 	EvidenceComplianceStatus *FindingPciComplianceEnum `json:"evidenceComplianceStatus,omitempty"`
 }
 

@@ -219,20 +219,20 @@ var setFindingStatusCmd = &cobra.Command{
 
 func init() {
 	// Add flags to get findings command
-	getFindingsCmd.Flags().String("project-id", "", "Filter by project ID")
-	getFindingsCmd.Flags().Int("max-results", 10, "Maximum number of results")
-	getFindingsCmd.Flags().Int("skip-count", 0, "Number of results to skip")
-	getFindingsCmd.Flags().String("output", "table", "Output format: json (complete JSON), short (ID and name JSON), table (ID and name table), or custom (interactive field selection)")
-	getFindingsCmd.Flags().Int("max-columns", 4, "Maximum number of columns for custom table output")
+	getFindingsCmd.Flags().StringP("project-id", "P", "", "Filter by project ID")
+	getFindingsCmd.Flags().IntP("max-results", "m", 10, "Maximum number of results")
+	getFindingsCmd.Flags().IntP("skip-count", "s", 0, "Number of results to skip")
+	getFindingsCmd.Flags().StringP("output", "o", "table", "Output format: json (complete JSON), short (ID and name JSON), table (ID and name table), or custom (interactive field selection)")
+	getFindingsCmd.Flags().IntP("max-columns", "C", 4, "Maximum number of columns for custom table output")
 
 	// Add flags to get finding by ID command
-	getFindingByIDCmd.Flags().Bool("include-evidence", false, "Include evidence in response")
-	getFindingByIDCmd.Flags().String("output", "table", "Output format: json (complete JSON), table (formatted table), or custom (interactive field selection)")
-	getFindingByIDCmd.Flags().Int("max-columns", 4, "Maximum number of columns for custom table output")
+	getFindingByIDCmd.Flags().BoolP("include-evidence", "e", false, "Include evidence in response")
+	getFindingByIDCmd.Flags().StringP("output", "o", "table", "Output format: json (complete JSON), table (formatted table), or custom (interactive field selection)")
+	getFindingByIDCmd.Flags().IntP("max-columns", "C", 4, "Maximum number of columns for custom table output")
 
 	// Add flags to set finding status command
-	setFindingStatusCmd.Flags().Bool("trigger-events", false, "Trigger events when updating status")
-	setFindingStatusCmd.Flags().String("status-body", "", "JSON body for status update (required)")
+	setFindingStatusCmd.Flags().BoolP("trigger-events", "t", false, "Trigger events when updating status")
+	setFindingStatusCmd.Flags().StringP("status-body", "b", "", "JSON body for status update (required)")
 
 	// Commands will be added to findings command group via InitClientCommands
 }

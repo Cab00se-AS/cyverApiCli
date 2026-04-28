@@ -10,7 +10,7 @@ A comprehensive command-line interface tool for interacting with the Cyver API. 
 - **Token Management**: Automatic token refresh and secure storage
 - **API Version Support**: Support for multiple API versions (v2.2)
 - **Interactive Configuration**: Guided setup and configuration management
-- **Named profiles (AWS-style)**: Multiple API endpoints and credentials in one YAML file (`profiles`, `current_profile`), like `[default]` and `[profile dev-user]` in `~/.aws/config`; selectable via `--profile`, `CYVER_PROFILE`, or legacy `instances` / `CYVER_INSTANCE`
+- **Named profiles (AWS-style)**: Multiple API endpoints and credentials in one YAML file (`profiles`, `current_profile`), like `[default]` and `[profile dev-user]` in `~/.aws/config`; selectable via `--profile`, `CYVER_PROFILE`, with legacy YAML `instances` / `current_instance` (and `CYVER_INSTANCE`) still read for defaults
 - **HTTP User-Agent**: Outbound requests use a desktop Chrome-style `User-Agent` with a **CyverCliTool** product token (for example `… Safari/537.36 CyverCliTool/1.0`) so traffic can be distinguished from real browsers while keeping a conventional browser prefix
 - **Direct HTTP (`customUrl`)**: Optional `GET`/`POST`/… against a path under the configured base URL or a full URL, using the same auth and `User-Agent` as the main client
 - **Comprehensive Error Handling**: Structured error management with retry mechanisms
@@ -19,6 +19,7 @@ A comprehensive command-line interface tool for interacting with the Cyver API. 
 - **Findings Import**: Import findings from JSON or Markdown (Obsidian frontmatter) files with field mapping and enum conversion
 - **Evidence Management**: Create evidence attached to findings; import evidence from JSON or Markdown files
 - **Pentester Labels**: List and filter labels by type (Finding, Client, Project, Assets, All)
+- **Finding templates (web app)**: `templates` commands for finding-library export, listing, downloads, and saves via non-documented portal endpoints. Full detail, warnings, and examples: **[internal/api/services/README.md](internal/api/services/README.md)**
 
 ## Installation
 
@@ -110,6 +111,7 @@ cyverApiCli
 │   │   ├── update            # Update finding
 │   │   ├── delete            # Delete finding
 │   │   ├── import            # Import findings (JSON or Markdown)
+│   │   ├── custom-import     # Import findings from a folder template (manifest + evidence files)
 │   │   └── evidence          # Evidence attached to findings
 │   │       ├── create        # Create evidence for a finding
 │   │       └── import        # Import evidence from file (JSON or Markdown)
@@ -155,8 +157,19 @@ cyverApiCli
 │       ├── get-report-versions # Get report versions
 │       ├── get-report        # Get continuous project report
 │       └── upload-file       # Upload file to continuous project
+├── templates                 # Finding libraries / templates (non-supported web endpoints — see internal/api/services/README.md)
+│   ├── export                # Export templates metadata; optional --download
+│   ├── export-json (exj)     # Download all templates in a library as JSON array
+│   ├── libraries             # List finding libraries
+│   ├── download              # Download temp file from export token
+│   ├── save-template         # Create or update a finding template (JSON)
+│   └── save-library          # Create or update a finding library (JSON)
 └── help                      # Help about any command
 ```
+
+## Finding templates and non-supported services
+
+The **`templates`** command group uses HTTP paths exposed by the web application, not the versioned public API. Those calls are implemented under `internal/api/services` and may change without notice. For endpoint list, response models, header policy, verbosity logging, and copy-paste CLI examples, see **[internal/api/services/README.md](internal/api/services/README.md)**.
 
 ## Configuration
 
@@ -217,7 +230,7 @@ profiles:
 ```
 
 - **Flat configs** with only top-level `api`, `auth`, and `token` (no `profiles` / `instances`) behave as before.
-- **Which profile is used:** **`--profile` / `-p`** (or deprecated **`--instance` / `-i`**) overrides for one command. Otherwise the default comes from **`current_profile`** in the file, or **`CYVER_PROFILE`**, with legacy **`current_instance`** / **`CYVER_INSTANCE`** still honored.
+- **Which profile is used:** **`--profile` / `-p`** overrides for one command. Otherwise the default comes from **`current_profile`** in the file, or **`CYVER_PROFILE`**, with legacy **`current_instance`** / **`CYVER_INSTANCE`** still honored when **`current_profile`** is unset.
 
 The CLI merges the selected profile into the top-level `api`, `auth`, and `token` keys each run. Token and auth updates are stored under the active profile and mirrored to the top-level keys for that session.
 
@@ -246,7 +259,7 @@ cyverApiCli config update --for-profile dev-user --base-url https://other.exampl
 
 Only flags you pass are written. Useful flags:
 
-- **Profile scope:** `--for-profile <name>` (deprecated alias: `--for-instance`)
+- **Profile scope:** `--for-profile <name>`
 - **API:** `--api-version`, `--base-url`, `--api-key` (use `--api-key ""` to clear a stored key)
 - **Auth:** `--auth-email` (stored email for token re-authentication)
 - **Global (not per profile):** `--proxy-url`, `--proxy-user`, `--proxy-password`, `--log-level`, `--log-file`, `--output-format`, `--output-color`, `--client-timeout` (seconds, 1–300)
@@ -286,13 +299,13 @@ cyverApiCli config re-auth
 cyverApiCli client list-clients
 
 # Get specific project
-cyverApiCli client get-project-by-id --project-id 550e8400-e29b-41d4-a716-446655440000
+cyverApiCli client get-project-by-id -p 550e8400-e29b-41d4-a716-446655440000
 
 # Create a new asset
 cyverApiCli client create-asset --body '{"name": "Web Server", "type": "server"}'
 
 # Get findings with custom output
-cyverApiCli client get-findings --output custom --max-columns 6
+cyverApiCli client get-findings -o custom -C 6
 ```
 
 ### Pentester Operations
@@ -301,32 +314,35 @@ cyverApiCli client get-findings --output custom --max-columns 6
 cyverApiCli pentester projects list
 
 # Create a new finding (title, type, severity, status)
-cyverApiCli pentester findings create --project-id <uuid> --title "SQL Injection" --severity high --type Vulnerability --status draft
+cyverApiCli pentester findings create -P <uuid> -t "SQL Injection" -s high -y Vulnerability -u draft
 
 # On success, the create command prints the finding URL
 
 # Import findings from JSON
-cyverApiCli pentester findings import findings.json --project-id <uuid>
+cyverApiCli pentester findings import findings.json -P <uuid>
 
 # Import findings from Markdown/Obsidian frontmatter
-cyverApiCli pentester findings import finding.md --project-id <uuid> --file-type markdown
+cyverApiCli pentester findings import finding.md -P <uuid> -y markdown
+
+# Custom folder import (manifest + evidence files)
+cyverApiCli pentester findings custom-import --project-id <uuid> ./import_templates/Finding1
 
 # List labels (default: all types)
 cyverApiCli pentester labels list
 cyverApiCli pentester labels list --type finding --max-results 20 --filter "web"
 
 # Create evidence for a finding
-cyverApiCli pentester findings evidence create --finding-id <uuid> --title "Request capture" --location /login --ip 192.168.1.1
+cyverApiCli pentester findings evidence create -f <uuid> -t "Request capture" -l /login -I 192.168.1.1
 
 # Import evidence from JSON or Markdown
-cyverApiCli pentester findings evidence import evidence.json --finding-id <uuid>
-cyverApiCli pentester findings evidence import evidence.md --finding-id <uuid> --file-type markdown
+cyverApiCli pentester findings evidence import evidence.json -f <uuid>
+cyverApiCli pentester findings evidence import evidence.md -f <uuid> -y markdown
 
 # Update a finding (title, status, severity, recommendation, CWE list, etc.)
-cyverApiCli pentester findings update <finding-uuid> --title "New title" --status fixed --recommendation "Apply patch" --cwe-list "CWE-89,CWE-564"
+cyverApiCli pentester findings update <finding-uuid> -t "New title" -s fixed -r "Apply patch" -C "CWE-89,CWE-564"
 
 # Update project status
-cyverApiCli pentester projects update-status --project-id 550e8400-e29b-41d4-a716-446655440000 --status "in-progress"
+cyverApiCli pentester projects update-status -p 550e8400-e29b-41d4-a716-446655440000 --status "in-progress"
 
 # Get team information
 cyverApiCli pentester teams get --team-id 6ba7b810-9dad-11d1-80b4-00c04fd430c8
@@ -338,15 +354,15 @@ cyverApiCli pentester teams get --team-id 6ba7b810-9dad-11d1-80b4-00c04fd430c8
 
 Creates a new finding with the given attributes. The `--title` value is sent to the API as `name`.
 
-**Required:** `--project-id`, `--title`
+**Required:** `--project-id` (`-P`), `--title` (`-t`)
 
 **Flags:**
-- `--title` – Finding title (required; sent as `name` to API)
-- `--description` – Finding description
-- `--type` – `Vulnerability` or `Observation`
-- `--severity` – `critical`, `high`, `medium`, `low`, `info` (API scale: info=0, low=1, medium=2, high=3, critical=4)
-- `--status` – Default `draft`; other values: pending-fix, fixed, accepted, to-review, reviewed, mitigated, partial-fix, false-positive, raised, reopen, acknowledged, identified
-- `--trigger-events` – Whether to trigger events (default: false)
+- `--title` (`-t`) – Finding title (required; sent as `name` to API)
+- `--description` (`-d`) – Finding description
+- `--type` (`-y`) – `Vulnerability` or `Observation`
+- `--severity` (`-s`) – `critical`, `high`, `medium`, `low`, `info` (API scale: info=0, low=1, medium=2, high=3, critical=4)
+- `--status` (`-u`) – Default `draft`; other values: pending-fix, fixed, accepted, to-review, reviewed, mitigated, partial-fix, false-positive, raised, reopen, acknowledged, identified
+- `--trigger-events` (`-r`) – Whether to trigger events (default: false)
 
 On successful creation (201), the CLI prints the finding URL:  
 `{Host}/App/Projects/Details/{project-id}/Finding/{finding-id}`
@@ -355,11 +371,11 @@ On successful creation (201), the CLI prints the finding URL:
 
 Import findings from structured files. Supports **JSON** and **Markdown (Obsidian frontmatter)**.
 
-**Required:** `--project-id`, file path
+**Required:** `--project-id` (`-P`), file path
 
 **Flags:**
-- `--file-type` – `json` (default) or `markdown` (also accepts `md`, `obsidian`)
-- `--trigger-events` – Whether to trigger events (default: false)
+- `--file-type` (`-y`) – `json` (default) or `markdown` (also accepts `md`, `obsidian`)
+- `--trigger-events` (`-T`) – Whether to trigger events (default: false)
 
 **JSON format:** Array of objects or a single object. Fields map to the API; unknown fields are ignored.  
 Supported fields include: `name`/`title`, `description`, `type`, `status`, `severity`, `code`, `complianceStatus`, `complianceComment`, `impact`, `impactDescription`, `likelihood`, `likelihoodDescription`, `recommendation`, `backgroundInformation`, `cweList`, `cveList`, `mitreAttackTacticsList`, `mitreAttackTechniquesList`, `assetIdList`, `labelIds`, and others from the CreateOrUpdateFindingRequest schema.
@@ -383,6 +399,25 @@ cweList:
 ```
 
 Enum strings (`type`, `status`, `severity`) are converted to the API’s numeric values. Extra properties in the file are ignored.
+
+### Custom Import (folder workflow)
+
+Use `custom-import` when your findings are arranged in a folder with a manifest JSON and local evidence files.
+
+**Command:** `cyverApiCli pentester findings custom-import --project-id <uuid> <folder>`
+
+**Default folder inputs:**
+- `findings_import.json` (required; manifest)
+- `evidence_import.json` (optional extra evidence file for single-finding manifests)
+
+**Behavior summary:**
+- Creates findings via v2.2 API.
+- Uploads evidence files using web-app endpoint `/App/Projects/UploadFindingEvidenceFiles`.
+- Uses returned `fileToken` values in `NewEvidenceFiles` for CreateOrEditFindingInstance fallback flow.
+- Tries v2.2 `/evidences` first; if blocked by gateway/WAF `403`, automatically falls back to `/api/services/app/Finding/CreateOrEditFindingInstance`.
+- Writes a post-import snapshot file named `<finding-guid>.json` into the source folder for traceability.
+
+For a concrete template and field examples, see `import_templates/Finding1/README.md`.
 
 ### Update Finding
 
@@ -445,13 +480,13 @@ Update an existing finding by ID. **Before applying changes**, the CLI fetches t
 **Examples:**
 ```bash
 # Basic: title, status, severity
-cyverApiCli pentester findings update cfce90c1-1ef1-4307-9796-f88ab4f694e8 --title "Updated title" --status fixed --severity high
+cyverApiCli pentester findings update cfce90c1-1ef1-4307-9796-f88ab4f694e8 -t "Updated title" -s fixed -S high
 
 # Remediation and CWE, impact
-cyverApiCli pentester findings update <uuid> --recommendation "Apply patch" --cwe-list "CWE-89,CWE-564" --impact 3
+cyverApiCli pentester findings update <uuid> -r "Apply patch" -C "CWE-89,CWE-564" --impact 3
 
 # CVSS, external URLs, and project controls
-cyverApiCli pentester findings update <uuid> --cvss-json "{\"cvss31Vector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:L/A:N\", \"cvss31Score\":5.8}" --external-url-json "[{\"title\":\"Ref\",\"link\":\"https://example.com\"}]" --project-control-id-list "uuid1,uuid2"
+cyverApiCli pentester findings update <uuid> -j "{\"cvss31Vector\":\"CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:N/I:L/A:N\", \"cvss31Score\":5.8}" -e "[{\"title\":\"Ref\",\"link\":\"https://example.com\"}]" -P "uuid1,uuid2"
 ```
 
 ## Pentester Findings Evidence
@@ -462,15 +497,15 @@ Create and import evidence attached to findings (CreateOrEditFindingInstance API
 
 **Command:** `cyverApiCli pentester findings evidence create`
 
-**Required:** `--finding-id`, `--title`
+**Required:** `--finding-id` (`-f`), `--title` (`-t`)
 
 **Flags:**
-- `--finding-id` – Finding ID to attach evidence to (required)
-- `--title` – Evidence title (required)
-- `--asset`, `--location`, `--version`
-- `--ip`, `--hostname`, `--port`, `--protocol`
-- `--issue-details`, `--reproduce`, `--evidence`
-- `--visible-in-report` – Include in report (default: true)
+- `--finding-id` (`-f`) – Finding ID to attach evidence to (required)
+- `--title` (`-t`) – Evidence title (required)
+- `--asset` (`-a`), `--location` (`-l`), `--version` (`-W`)
+- `--ip` (`-I`), `--hostname` (`-H`), `--port` (`-P`), `--protocol` (`-r`)
+- `--issue-details` (`-d`), `--reproduce` (`-R`), `--evidence` (`-e`)
+- `--visible-in-report` (`-V`) – Include in report (default: true)
 
 ### Import Evidence
 
@@ -478,11 +513,11 @@ Import evidence from a structured file and attach all records to one finding.
 
 **Command:** `cyverApiCli pentester findings evidence import [file-path]`
 
-**Required:** `--finding-id`, file path
+**Required:** `--finding-id` (`-f`), file path
 
 **Flags:**
-- `--finding-id` – Finding ID to attach evidence to (required)
-- `--file-type` – `json` (default) or `markdown` (also `md`, `obsidian`)
+- `--finding-id` (`-f`) – Finding ID to attach evidence to (required)
+- `--file-type` (`-y`) – `json` (default) or `markdown` (also `md`, `obsidian`)
 
 **JSON:** Array of evidence objects or a single object. Each record must have `title`. Other supported fields: `asset`, `location`, `version`, `ip`, `hostname`, `port`, `protocol`, `issueDetails` / `issue-details`, `reproduce`, `evidence`, `visibleInReport` / `visible-in-report`. Unknown fields are ignored.
 
@@ -560,11 +595,12 @@ cyverApiCli -vvv pentester findings list
 
 - `-c, --config`: Specify config file path
 - `-p, --profile`: Use a named profile for this run (overrides `CYVER_PROFILE` / `current_profile`)
-- `-i, --instance`: Deprecated; same as `--profile`
 - `-v, --verbose`: Increase verbosity level (can be used multiple times)
 - `-h, --help`: Show help information
 
-**Environment:** `CYVER_PROFILE` is bound to `current_profile`. `CYVER_INSTANCE` is bound to legacy `current_instance`. Precedence for the active profile: **`--profile` / `--instance`**, then `current_profile` (including `CYVER_PROFILE`), then `current_instance` (including `CYVER_INSTANCE`).
+**Shorthand collisions:** `-p`, `-c`, and `-v` are reserved at the root for profile, config, and verbosity. Subcommands avoid reusing those letters for their own shorthands (for example pentester/client findings use `-P` for `--project-id`). Cobra only supports single-character shorthands, not multi-letter ones.
+
+**Environment:** `CYVER_PROFILE` is bound to `current_profile`. `CYVER_INSTANCE` is bound to legacy `current_instance`. Precedence for the active profile: **`--profile`**, then `current_profile` (including `CYVER_PROFILE`), then `current_instance` (including `CYVER_INSTANCE`).
 
 ## Recent Updates and Changes
 
@@ -574,9 +610,9 @@ cyverApiCli -vvv pentester findings list
 - **`current_profile`**: default profile; set with `cyverApiCli config profile use <name>`.
 - **Legacy `instances` / `current_instance`**: still read; new writes prefer `profiles` / `current_profile`.
 - **`config profile list`** / **`config profile use`** (alias **`config instance`**).
-- **Global `--profile` / `-p`** (legacy **`--instance` / `-i`**).
+- **Global `--profile` / `-p`**.
 - **`CYVER_PROFILE`** / **`CYVER_INSTANCE`** for default profile selection.
-- **`config update`**: patch YAML via flags without re-running `config init` (`--for-profile` / `--for-instance`, `--base-url`, `--api-key`, `--api-version`, `--auth-email`, proxy, logging, output, client timeout). See the **Update values without re-init** subsection under **Named profiles** and `config update --help`.
+- **`config update`**: patch YAML via flags without re-running `config init` (`--for-profile`, `--base-url`, `--api-key`, `--api-version`, `--auth-email`, proxy, logging, output, client timeout). See the **Update values without re-init** subsection under **Named profiles** and `config update --help`.
 
 ### Findings
 
@@ -592,7 +628,7 @@ cyverApiCli -vvv pentester findings list
   - **File types:** `--file-type json` (default) or `--file-type markdown` (or `md` / `obsidian`).
   - **JSON:** Accepts an array of finding objects or a single object. Unknown fields are ignored; known fields are mapped to the API (e.g. `title` → `name`). Enums (`type`, `status`, `severity`) can be strings or numbers.
   - **Markdown:** Parses Obsidian-style frontmatter between `---` delimiters. Supports `key: value` and indented list items with `-`. One finding per file.
-  - Requires `--project-id`. Each finding is created via the pentester findings create API; import reports success/failure counts and prints finding URLs for created items.
+  - Requires `--project-id` (`-P`). Each finding is created via the pentester findings create API; import reports success/failure counts and prints finding URLs for created items.
 
 - **Update**
   - Update finding uses `name` (not `title`) in the request body when changing the title.
@@ -601,8 +637,8 @@ cyverApiCli -vvv pentester findings list
 
 ### Pentester Findings Evidence
 
-- **Create:** `pentester findings evidence create` – Create evidence attached to a finding. Required: `--finding-id`, `--title`. Optional: `--asset`, `--location`, `--version`, `--ip`, `--hostname`, `--port`, `--protocol`, `--issue-details`, `--reproduce`, `--evidence`, `--visible-in-report` (default true). Uses the CreateOrEditFindingInstance app service endpoint.
-- **Import:** `pentester findings evidence import [file-path]` – Import evidence from JSON or Markdown. Requires `--finding-id`. `--file-type json` (default) or `markdown`. JSON: array or single object; each record needs `title`. Markdown: one evidence per file via Obsidian frontmatter. Reports success/failure counts.
+- **Create:** `pentester findings evidence create` – Create evidence attached to a finding. Required: `--finding-id` (`-f`), `--title` (`-t`). Optional: `--asset` (`-a`), `--location` (`-l`), `--version` (`-W`), `--ip` (`-I`), `--hostname` (`-H`), `--port` (`-P`), `--protocol` (`-r`), `--issue-details` (`-d`), `--reproduce` (`-R`), `--evidence` (`-e`), `--visible-in-report` (`-V`, default true). Uses the CreateOrEditFindingInstance app service endpoint.
+- **Import:** `pentester findings evidence import [file-path]` – Import evidence from JSON or Markdown. Requires `--finding-id` (`-f`). `--file-type` (`-y`) accepts `json` (default) or `markdown`. JSON: array or single object; each record needs `title`. Markdown: one evidence per file via Obsidian frontmatter. Reports success/failure counts.
 
 ### Pentester Labels
 
@@ -653,6 +689,7 @@ cyverApiCli/
 │   └── root.go            # Root command
 ├── internal/              # Internal packages
 │   ├── api/              # API client implementations
+│   │   ├── services/   # Non-documented web-app endpoints (`README.md` documents behavior & `templates` CLI)
 │   │   └── versions/     # API version implementations
 │   ├── config/           # Configuration management
 │   └── errors/           # Error handling system

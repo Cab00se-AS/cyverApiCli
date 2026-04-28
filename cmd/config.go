@@ -86,7 +86,7 @@ var profileCmd = &cobra.Command{
 	Long: `Named profiles (similar to AWS ~/.aws/config) keep separate api, auth, and token data per profile.
 
 Use the "profiles" map in YAML (legacy "instances" is still read). The default profile name is stored in current_profile.
-Set the default with "config profile use <name>", override per command with --profile / -p (or legacy --instance / -i), or set CYVER_PROFILE.`,
+Set the default with "config profile use <name>", override per command with --profile / -p, or set CYVER_PROFILE.`,
 }
 
 var profileListCmd = &cobra.Command{
