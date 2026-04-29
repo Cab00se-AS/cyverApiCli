@@ -410,12 +410,17 @@ Use `custom-import` when your findings are arranged in a folder with a manifest 
 - `findings_import.json` (required; manifest)
 - `evidence_import.json` (optional extra evidence file for single-finding manifests)
 
+**Batch modes:**
+- `--each-subdir` - import each immediate child directory containing the manifest.
+- `--batch` (`-b`) - recursively import every directory (including nested) containing the manifest.
+
 **Behavior summary:**
 - Creates findings via v2.2 API.
 - Uploads evidence files using web-app endpoint `/App/Projects/UploadFindingEvidenceFiles`.
 - Uses returned `fileToken` values in `NewEvidenceFiles` for CreateOrEditFindingInstance fallback flow.
 - Tries v2.2 `/evidences` first; if blocked by gateway/WAF `403`, automatically falls back to `/api/services/app/Finding/CreateOrEditFindingInstance`.
 - Writes a post-import snapshot file named `<finding-guid>.json` into the source folder for traceability.
+- In batch mode, each discovered finding folder is processed using its own working path, so manifest inputs, evidence file resolution, and snapshot outputs stay local to that folder.
 
 For a concrete template and field examples, see `import_templates/Finding1/README.md`.
 
