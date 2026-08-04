@@ -416,9 +416,10 @@ Use `custom-import` when your findings are arranged in a folder with a manifest 
 
 **Behavior summary:**
 - Creates findings via v2.2 API.
-- Uploads evidence files using web-app endpoint `/App/Projects/UploadFindingEvidenceFiles`.
-- Uses returned `fileToken` values in `NewEvidenceFiles` for CreateOrEditFindingInstance fallback flow.
-- Tries v2.2 `/evidences` first; if blocked by gateway/WAF `403`, automatically falls back to `/api/services/app/Finding/CreateOrEditFindingInstance`.
+- Uploads evidence files via supported `POST /api/v2.2/pentester/projects/{id}/upload-file` and captures `fileToken`.
+- Creates each evidence via supported `POST /api/v2.2/pentester/findings/{findingId}/evidences`, sending uploaded tokens in `evidenceFiles`.
+- Updates the finding via supported `PUT /api/v2.2/pentester/findings/{id}` with `findingEvidenceList`.
+- Does not use non-supported/legacy app-service endpoints (`CreateOrEditFindingInstance`, `/App/Projects/UploadFindingEvidenceFiles`).
 - Writes a post-import snapshot file named `<finding-guid>.json` into the source folder for traceability.
 - In batch mode, each discovered finding folder is processed using its own working path, so manifest inputs, evidence file resolution, and snapshot outputs stay local to that folder.
 

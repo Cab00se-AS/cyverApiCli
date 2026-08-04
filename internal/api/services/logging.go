@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/yourusername/cyverApiCli/internal/api"
 	log "github.com/yourusername/cyverApiCli/logger"
 )
 
@@ -27,7 +28,7 @@ func getLogger() *log.Logger {
 }
 
 func logServiceRequest(req *http.Request) {
-	getLogger().Debug("Service HTTP request", "method", req.Method, "url", req.URL.String(), "headers", req.Header)
+	getLogger().Debug("Service HTTP request", "method", req.Method, "url", req.URL.String(), "headers", api.SanitizeHeaders(req.Header))
 	if verboseLevel < 3 {
 		return
 	}
@@ -39,17 +40,18 @@ func logServiceRequest(req *http.Request) {
 	}
 
 	fmt.Fprintf(os.Stderr, "\n=== RAW SERVICE HTTP REQUEST ===\n")
-	fmt.Fprintf(os.Stderr, "%s\n", string(dump))
+	fmt.Fprintf(os.Stderr, "%s\n", api.SanitizeHTTPDump(dump))
 	fmt.Fprintf(os.Stderr, "===============================\n\n")
 }
 
 func logServiceResponse(resp *http.Response, body []byte, duration time.Duration) {
+	safeHeaders := api.SanitizeHeaders(resp.Header)
 	getLogger().Debug(
 		"Service HTTP response",
 		"status", resp.StatusCode,
 		"url", resp.Request.URL.String(),
 		"duration", duration.String(),
-		"headers", resp.Header,
+		"headers", safeHeaders,
 		"body_size", len(body),
 	)
 	if verboseLevel < 3 {
@@ -59,7 +61,7 @@ func logServiceResponse(resp *http.Response, body []byte, duration time.Duration
 	fmt.Fprintf(os.Stderr, "\n=== RAW SERVICE HTTP RESPONSE ===\n")
 	fmt.Fprintf(os.Stderr, "Status: %s\n", resp.Status)
 	fmt.Fprintf(os.Stderr, "Headers:\n")
-	for k, vals := range resp.Header {
+	for k, vals := range safeHeaders {
 		fmt.Fprintf(os.Stderr, "  %s: %s\n", k, strings.Join(vals, ", "))
 	}
 	fmt.Fprintf(os.Stderr, "\nBody:\n")

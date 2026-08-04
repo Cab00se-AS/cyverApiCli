@@ -10,57 +10,19 @@ is labelled with a severity: **Critical**, **High**, or **Medium**.
 
 ### KI-001 — `LabelTypeEnum` — All values wrong [Critical]
 **File:** `models.go`
-
-Go constants do not match the spec. Every value is shifted and the `All` variant is absent.
-
-| Go Constant | Go Value | Spec Value | Spec Name |
-|---|---|---|---|
-| `LabelTypeEnum_Project` | 0 | 2 | `Project` |
-| `LabelTypeEnum_Finding` | 1 | 0 | `Finding` |
-| `LabelTypeEnum_Asset` | 2 | 3 | `Assets` |
-| `LabelTypeEnum_Client` | 3 | 1 | `Client` |
-| *(missing)* | — | 4 | `All` |
-
-**Fix:** Reassign all constants to match the spec and add `LabelTypeEnum_All = 4`.
+**Status:** Fixed August 3, 2026 — values now match Full_api.json (`Finding=0`, `Client=1`, `Project=2`, `Assets=3`, `All=4`).
 
 ---
 
 ### KI-002 — `ApiRolesEnum` — All Pentester values off-by-one; two values missing [Critical]
 **File:** `models.go`
-
-The spec has 12 values (0–11). Go has 10 (0–9). The spec `Client = 4` is entirely absent,
-causing every Pentester role to be assigned an integer one lower than intended.
-
-| Go Constant | Go Value | Spec Value | Spec Name |
-|---|---|---|---|
-| `ApiRolesEnum_Client` | 3 | 3 | `Client_General` (rename needed) |
-| *(missing)* | — | 4 | `Client` |
-| `ApiRolesEnum_Pentester_View_Only` | 4 | 5 | `Pentester_View_Only` |
-| `ApiRolesEnum_Pentester_Project_Only` | 5 | 6 | `Pentester_Project_Only` |
-| `ApiRolesEnum_Pentester_General` | 6 | 7 | `Pentester_General` |
-| `ApiRolesEnum_Pentester_ProjectManager` | 7 | 8 | `Pentester_ProjectManager` |
-| `ApiRolesEnum_Pentester_Manager` | 8 | 9 | `Pentester_Manager` |
-| `ApiRolesEnum_Pentester_Owner` | 9 | 10 | `Pentester_Owner` |
-| *(missing)* | — | 11 | `Pentester_Team_Manager` |
-
-**Fix:** Add `ApiRolesEnum_Client = 4`, shift all Pentester constants up by 1, add `ApiRolesEnum_Pentester_Team_Manager = 11`.
+**Status:** Fixed August 3, 2026 — includes `Client_General=3`, `Client=4`, shifted pentester roles, and `Pentester_Team_Manager=11`.
 
 ---
 
 ### KI-003 — `FormFieldTypeEnum` — Entirely wrong values and names [Critical]
 **File:** `models.go`
-
-Go starts at 0; spec starts at 1. Names are completely different.
-
-| Go Constant | Go Value | Spec Value | Spec Name |
-|---|---|---|---|
-| `FormFieldTypeEnum_Text` | 0 | 1 | `Text` |
-| `FormFieldTypeEnum_Number` | 1 | 2 | `Multitext` |
-| `FormFieldTypeEnum_Date` | 2 | 3 | `Dropdown` |
-| `FormFieldTypeEnum_Select` | 3 | 4 | `Multiselect` |
-| `FormFieldTypeEnum_TextArea` | 4 | *(not in spec)* | — |
-
-**Fix:** Remove all five constants, replace with `Text=1`, `Multitext=2`, `Dropdown=3`, `Multiselect=4`.
+**Status:** Fixed August 3, 2026 — `Text=1`, `Multitext=2`, `Dropdown=3`, `Multiselect=4`.
 
 ---
 
@@ -75,10 +37,7 @@ Go starts at 0; spec starts at 1. Names are completely different.
 
 ### KI-005 — `ImportFileTypeEnum` — Missing value 27 [Medium]
 **File:** `models.go`
-
-`Horizon = 27` is defined in the spec but absent from Go.
-
-**Fix:** Add `ImportFileTypeEnum_Horizon = 27`.
+**Status:** Fixed August 3, 2026 — `ImportFileTypeEnum_Horizon = 27`.
 
 ---
 
@@ -86,19 +45,7 @@ Go starts at 0; spec starts at 1. Names are completely different.
 
 ### KI-006 — `CreateOrUpdateFindingRequest` — Severely incomplete [Critical]
 **File:** `models.go`
-
-The struct has only 5 fields. The spec defines 26. Missing fields:
-
-`code`, `type` *(required)*, `complianceStatus`, `complianceComment`, `impact`,
-`impactDescription`, `likelihood`, `likelihoodDescription`, `recommendation`,
-`backgroundInformation`, `cvss`, `projectTaskId`, `reviewerId`, `cweList`,
-`cveList`, `mitreAttackTacticsList`, `mitreAttackTechniquesList`,
-`mitreAttackMitigationsList`, `vulnerabilityTypeList`, `externalUrlList`,
-`assetIdList`, `labelIdList`, `projectControlIdList`, `findingEvidenceList`,
-`customFields`.
-
-Also: `Severity` uses `*FindingSeverityEnum` but the spec requires `FindingCriticalityEnum`.
-Also: `ProjectID` (`projectId`) is a request body field in Go but is a **query parameter** in the spec.
+**Status:** Fixed August 3, 2026 — field set aligned to Full_api.json; `severity` uses `FindingCriticalityEnum`; `findingEvidenceList` uses `FindingEvidenceDto`; `complianceStatus` uses `FindingPciComplianceEnum`.
 
 ---
 
@@ -146,20 +93,15 @@ Both structs are also missing: `documentationLink`, `identifier`, `category`, `g
 
 ---
 
-### KI-010 — `CreateOrUpdateFindingEvidenceRequest` — Missing `assetId` field [High]
+### KI-010 — `CreateOrUpdateFindingEvidenceRequest` — Missing `assetId` / `evidenceFiles` [High]
 **File:** `models.go`
-
-The spec includes `assetId` (nullable uuid) in `CreateOrUpdateFindingEvidenceRequest`.
-The Go struct does not have this field.
-
-**Fix:** Add `AssetId *string json:"assetId,omitempty"`.
+**Status:** Fixed August 3, 2026 — includes `assetId` and `evidenceFiles []string` (file tokens).
 
 ---
 
 ### KI-011 — `PlanningDateDtoV2` — Entirely wrong fields [High]
 **File:** `models.go`
-
-Go has `Date` and `Description`. Spec has `status` (`PlanningDateStatusEnum`), `startDate`, `endDate`.
+**Status:** Fixed August 3, 2026 — `status`, `startDate`, `endDate`.
 
 ---
 
@@ -181,9 +123,7 @@ They will never be populated by the API. Safe to remove.
 
 ### KI-014 — `FindingDtoPagedResultDtoAjaxResponse.TargetUrl` — Missing `omitempty` [Medium]
 **File:** `models.go`
-
-`TargetUrl *string json:"targetUrl"` — every other AjaxResponse wrapper uses `omitempty`.
-This will serialize `"targetUrl": null` in JSON output instead of omitting the field.
+**Status:** Fixed August 3, 2026.
 
 ---
 
@@ -219,12 +159,7 @@ response variable *after* the call. The function always returned a zero-value st
 
 ### KI-018 — `ApiV22PentesterFindingEvidencePost` — Uses non-spec legacy path [High]
 **File:** `pentester_ops.go`
-
-Uses path `/api/services/app/Finding/CreateOrEditFindingInstance` which does not exist in
-`Full_api.json`. The correct spec path for creating evidence is
-`POST /api/v2.2/pentester/findings/{findingId}/evidences`
-(implemented separately as `ApiV22PentesterFindingsByFindingIdEvidencesPost`).
-This function is a legacy internal service call and should be deprecated or removed.
+**Status:** Marked Deprecated August 3, 2026. Prefer `ApiV22PentesterFindingsByFindingIdEvidencesPost` (POST fixed). Kept for legacy CLI unsupported flows.
 
 ---
 
@@ -240,13 +175,30 @@ endpoints intentionally bypass versioning (some APIs do this for auth routes).
 
 ### KI-020 — Missing functions: GET evidences list, UPDATE/DELETE client user [High]
 **File:** `pentester_ops.go`, `client_ops.go`
-
-The following spec endpoints have no corresponding Go function:
-- `GET /api/v2.2/pentester/findings/{id}/evidences` → `ApiV22PentesterFindingsByIdEvidencesGet`
+**Status (pentester):** Fixed August 3, 2026 — added `ApiV22PentesterFindingsByIdEvidencesGet`.
+Still missing (client scope, out of this pass):
 - `PUT /api/v2.2/client/users/{id}` → `ApiV22ClientUsersByIdPut`
 - `DELETE /api/v2.2/client/users/{id}` → `ApiV22ClientUsersByIdDelete`
 
 Also: `message_ops.go` contains only a package declaration — no functions implemented.
+
+---
+
+### KI-021 — Evidence create used GET instead of POST [Critical]
+**File:** `pentester_ops.go`
+**Status:** Fixed August 3, 2026 — `ApiV22PentesterFindingsByFindingIdEvidencesPost` now uses HTTP POST.
+
+---
+
+### KI-022 — Upload-file / evidence DTO alignment [High]
+**File:** `models.go`, `pentester_ops.go`
+**Status:** Fixed August 3, 2026 —
+- Added `FileInfoDto` / `FileInfoDtoAjaxResponse`
+- `FindingEvidenceDto` includes `assetId` + `evidenceFiles []*FileInfoDto`
+- Multipart uploads return typed `FileInfoDtoAjaxResponse`
+- Added continuous-project multipart upload helper
+- Added latest-report GETs for projects and continuous projects
+- Finding GET now sends `includeEvidence` query
 
 ---
 

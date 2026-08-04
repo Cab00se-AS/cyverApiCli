@@ -49,6 +49,15 @@ Verbosity levels:
 		api.SetVerboseLevel(verboseLevel)
 		services.SetVerboseLevel(verboseLevel)
 		v2_2.SetVerboseLevel(verboseLevel)
+
+		// Handle manual continue flag (only works with -vvv)
+		manualContinue, _ := cmd.Flags().GetBool("manual-continue")
+		if manualContinue && verboseLevel >= 3 {
+			api.SetManualContinue(true)
+			logger.Info("Manual continue mode enabled (pauses after each API request for validation)")
+		} else if manualContinue && verboseLevel < 3 {
+			logger.Warn("--manual-continue requires -vvv verbosity level; ignoring flag")
+		}
 	},
 }
 
@@ -66,6 +75,9 @@ func init() {
 
 	// Add verbose flag that can be specified multiple times
 	rootCmd.PersistentFlags().CountP("verbose", "v", "increase verbosity level")
+
+	// Add manual continue flag (requires -vvv)
+	rootCmd.PersistentFlags().Bool("manual-continue", false, "pause after each API request for validation (requires -vvv)")
 
 	// AWS-style profile selection (like AWS_PROFILE / ~/.aws/config)
 	rootCmd.PersistentFlags().StringP("profile", "p", "", "use this named profile (overrides CYVER_PROFILE / current_profile)")

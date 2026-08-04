@@ -21,14 +21,46 @@ import (
 )
 
 var (
-	verboseLevel int
-	logger       = log.GetLogger(verboseLevel) // initialize with default verbosity 0
+	verboseLevel  int
+	manualContinue bool
+	logger        = log.GetLogger(verboseLevel) // initialize with default verbosity 0
 )
 
 // SetVerboseLevel sets the verbosity level for the API client
 func SetVerboseLevel(level int) {
 	verboseLevel = level
 	logger = log.GetLogger(verboseLevel)
+}
+
+// SetManualContinue enables manual continue mode (requires -vvv verbosity)
+func SetManualContinue(enabled bool) {
+	manualContinue = enabled
+}
+
+// pauseForUserInput pauses execution and waits for user to press Enter
+// Only works if manualContinue is true and verbosity is at least 3 (-vvv)
+func pauseForUserInput() bool {
+	if !manualContinue || verboseLevel < 3 {
+		return true
+	}
+
+	fmt.Println("\n" + strings.Repeat("=", 80))
+	fmt.Println("DEBUG: Manual continue mode active. Press ENTER to continue, or type 'abort' to stop")
+	fmt.Println(strings.Repeat("=", 80))
+
+	var input string
+	_, err := fmt.Scanln(&input)
+	if err != nil && err.Error() != "unexpected newline" {
+		logger.Error("Error reading input", "error", err)
+		return true // Continue on error
+	}
+
+	if strings.ToLower(strings.TrimSpace(input)) == "abort" {
+		fmt.Println("\nAbort requested by user")
+		return false
+	}
+
+	return true
 }
 
 // APIClient represents the base API client
@@ -138,6 +170,9 @@ func (c *APIClient) createRequest(method, url string, bodyReader io.Reader) (*ht
 func (c *APIClient) setRequestHeaders(req *http.Request) error {
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
+	req.Header.Set("Accept-Language", "en-US,en;q=0.9")
+	req.Header.Set("Pragma", "no-cache")
+	req.Header.Set("Cache-Control", "no-cache")
 	req.Header.Set("User-Agent", ChromeUserAgent)
 
 	// TokenAuth login/refresh must not send a stored JWT from viper: merged config often still has
@@ -164,11 +199,6 @@ func (c *APIClient) setRequestHeaders(req *http.Request) error {
 		}
 	}
 
-	// Add API version header if set
-	if c.APIVersion != "" {
-		req.Header.Set("X-API-Version", c.APIVersion)
-	}
-
 	logger.Debug("Request headers set", "content_type", req.Header.Get("Content-Type"), "auth_present", req.Header.Get("Authorization") != "" || req.Header.Get("X-API-Key") != "")
 	return nil
 }
@@ -180,20 +210,21 @@ func (c *APIClient) logRequestDetails(req *http.Request) error {
 		logger.Error("Failed to dump request", "error", err)
 		return errors.WrapError(err, errors.ErrCodeInternalError, "failed to dump request details")
 	}
+	sanitizedDump := SanitizeHTTPDump(requestDump)
 
-	logger.Debug("HTTP Request", "method", req.Method, "url", req.URL.String(), "headers", req.Header)
-	logger.Debug("Request dump", "dump", string(requestDump))
-	
+	logger.Debug("HTTP Request", "method", req.Method, "url", req.URL.String(), "headers", SanitizeHeaders(req.Header))
+	logger.Debug("Request dump", "dump", sanitizedDump)
+
 	// At -vvv (verbosity 3), print raw request data directly to stderr
 	if verboseLevel >= 3 {
 		fmt.Fprintf(os.Stderr, "\n=== RAW HTTP REQUEST ===\n")
-		fmt.Fprintf(os.Stderr, "%s\n", string(requestDump))
+		fmt.Fprintf(os.Stderr, "%s\n", sanitizedDump)
 		fmt.Fprintf(os.Stderr, "=======================\n\n")
 	} else {
 		// Debug: log the verbosity level if it's not 3
 		logger.Debug("Verbosity level check", "verboseLevel", verboseLevel, "required", 3)
 	}
-	
+
 	return nil
 }
 
@@ -249,15 +280,16 @@ func (c *APIClient) processResponse(resp *http.Response, result interface{}) (in
 	}
 
 	// Log response details
-	logger.Debug("HTTP Response", "status", resp.StatusCode, "headers", resp.Header)
+	safeHeaders := SanitizeHeaders(resp.Header)
+	logger.Debug("HTTP Response", "status", resp.StatusCode, "headers", safeHeaders)
 	logger.Debug("Response body", "body", string(respBody))
-	
+
 	// At -vvv (verbosity 3), print raw response data directly to stderr
 	if verboseLevel >= 3 {
 		fmt.Fprintf(os.Stderr, "\n=== RAW HTTP RESPONSE ===\n")
 		fmt.Fprintf(os.Stderr, "Status: %s\n", resp.Status)
 		fmt.Fprintf(os.Stderr, "Headers:\n")
-		for key, values := range resp.Header {
+		for key, values := range safeHeaders {
 			for _, value := range values {
 				fmt.Fprintf(os.Stderr, "  %s: %s\n", key, value)
 			}
@@ -399,6 +431,12 @@ func (c *APIClient) DoRequest(method, path string, body interface{}, result inte
 	}
 
 	logger.Debug("API request completed successfully")
+
+	// Pause for user validation if manual continue mode is enabled
+	if !pauseForUserInput() {
+		return nil, errors.NewCyverError(errors.ErrCodeInternalError, "execution aborted by user", nil)
+	}
+
 	return response, nil
 }
 

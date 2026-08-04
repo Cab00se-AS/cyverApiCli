@@ -26,6 +26,30 @@ type AjaxResponse struct {
 	Result              interface{} `json:"result,omitempty"`
 }
 
+// FileInfoDto matches Full_api.json FileInfoDto (upload-file response result / evidence file metadata).
+type FileInfoDto struct {
+	FileToken string `json:"fileToken"`
+	FileName  string `json:"fileName,omitempty"`
+	FileType  string `json:"fileType,omitempty"`
+	FileSize  int64  `json:"fileSize,omitempty"`
+}
+
+// FileInfoDtoAjaxResponse matches Full_api.json FileInfoDtoAjaxResponse.
+type FileInfoDtoAjaxResponse struct {
+	TargetUrl           *string      `json:"targetUrl,omitempty"`
+	Success             bool         `json:"success"`
+	Error               *ErrorInfo   `json:"error,omitempty"`
+	UnAuthorizedRequest bool         `json:"unAuthorizedRequest"`
+	Abp                 bool         `json:"__abp"`
+	Result              *FileInfoDto `json:"result,omitempty"`
+}
+
+// FileUploadResult is an alias retained for older call sites.
+type FileUploadResult = FileInfoDto
+
+// FileUploadResponse is an alias retained for older call sites.
+type FileUploadResponse = FileInfoDtoAjaxResponse
+
 // --- Enums ---
 
 type ApiRolesEnum int32
@@ -34,13 +58,15 @@ const (
 	ApiRolesEnum_Client_View_Only         ApiRolesEnum = 0
 	ApiRolesEnum_Client_Finding_Only      ApiRolesEnum = 1
 	ApiRolesEnum_Client_Project_Only      ApiRolesEnum = 2
-	ApiRolesEnum_Client                   ApiRolesEnum = 3
-	ApiRolesEnum_Pentester_View_Only      ApiRolesEnum = 4
-	ApiRolesEnum_Pentester_Project_Only   ApiRolesEnum = 5
-	ApiRolesEnum_Pentester_General        ApiRolesEnum = 6
-	ApiRolesEnum_Pentester_ProjectManager ApiRolesEnum = 7
-	ApiRolesEnum_Pentester_Manager        ApiRolesEnum = 8
-	ApiRolesEnum_Pentester_Owner          ApiRolesEnum = 9
+	ApiRolesEnum_Client_General           ApiRolesEnum = 3
+	ApiRolesEnum_Client                   ApiRolesEnum = 4
+	ApiRolesEnum_Pentester_View_Only      ApiRolesEnum = 5
+	ApiRolesEnum_Pentester_Project_Only   ApiRolesEnum = 6
+	ApiRolesEnum_Pentester_General        ApiRolesEnum = 7
+	ApiRolesEnum_Pentester_ProjectManager ApiRolesEnum = 8
+	ApiRolesEnum_Pentester_Manager        ApiRolesEnum = 9
+	ApiRolesEnum_Pentester_Owner          ApiRolesEnum = 10
+	ApiRolesEnum_Pentester_Team_Manager   ApiRolesEnum = 11
 )
 
 // Verified against Asset.json schema on September 26, 2025
@@ -463,6 +489,7 @@ const (
 	ImportFileTypeEnum_Nipper                     ImportFileTypeEnum = 24
 	ImportFileTypeEnum_PentestToolsNetworkScanner ImportFileTypeEnum = 25
 	ImportFileTypeEnum_PentestToolsWebsiteScanner ImportFileTypeEnum = 26
+	ImportFileTypeEnum_Horizon                    ImportFileTypeEnum = 27
 )
 
 // Verified against Project.json schema on September 26, 2025
@@ -508,10 +535,11 @@ type ProjectDatesDtoV2 struct {
 	PlanningDates     []*PlanningDateDtoV2 `json:"planningDates,omitempty"`
 }
 
-// Verified against Project.json schema on September 26, 2025
+// Verified against Full_api.json on August 3, 2026
 type PlanningDateDtoV2 struct {
-	Date        string  `json:"date"`
-	Description *string `json:"description,omitempty"`
+	Status    *string `json:"status,omitempty"`
+	StartDate string  `json:"startDate"`
+	EndDate   string  `json:"endDate"`
 }
 
 // Verified against Project.json schema on September 26, 2025
@@ -1010,10 +1038,11 @@ type FindingCvssDto struct {
 type LabelTypeEnum int32
 
 const (
-	LabelTypeEnum_Project LabelTypeEnum = 0
-	LabelTypeEnum_Finding LabelTypeEnum = 1
-	LabelTypeEnum_Asset   LabelTypeEnum = 2
-	LabelTypeEnum_Client  LabelTypeEnum = 3
+	LabelTypeEnum_Finding LabelTypeEnum = 0
+	LabelTypeEnum_Client  LabelTypeEnum = 1
+	LabelTypeEnum_Project LabelTypeEnum = 2
+	LabelTypeEnum_Assets  LabelTypeEnum = 3
+	LabelTypeEnum_All     LabelTypeEnum = 4
 )
 
 // Verified against Full_api.json on April 17, 2026
@@ -1023,10 +1052,10 @@ type LabelDto struct {
 	Type *LabelTypeEnum `json:"type,omitempty"`
 }
 
-// Verified against Finding.json schema on September 26, 2025
+// Verified against Full_api.json on August 3, 2026
 type FindingEvidenceDto struct {
 	ID                       *string                   `json:"id,omitempty"`
-	Title                    string                    `json:"title"`
+	Title                    *string                   `json:"title,omitempty"`
 	Location                 *string                   `json:"location,omitempty"`
 	Version                  *string                   `json:"version,omitempty"`
 	Reproduce                *string                   `json:"reproduce,omitempty"`
@@ -1038,10 +1067,13 @@ type FindingEvidenceDto struct {
 	Port                     *string                   `json:"port,omitempty"`
 	Protocol                 *string                   `json:"protocol,omitempty"`
 	EvidenceComplianceStatus *FindingPciComplianceEnum `json:"evidenceComplianceStatus,omitempty"`
+	AssetID                  *string                   `json:"assetId,omitempty"`
+	EvidenceFiles            []*FileInfoDto            `json:"evidenceFiles,omitempty"`
 }
 
-// Verified against Full_api.json on April 17, 2026
-// CreateOrUpdateFindingEvidenceRequest is the request body for POST /api/v2.2/pentester/findings/{findingId}/evidences
+// Verified against Full_api.json on August 3, 2026
+// CreateOrUpdateFindingEvidenceRequest is the request body for POST/PUT .../evidences.
+// evidenceFiles is an array of fileToken strings from upload-file.
 type CreateOrUpdateFindingEvidenceRequest struct {
 	Title                    string                    `json:"title"`
 	Location                 *string                   `json:"location,omitempty"`
@@ -1056,7 +1088,29 @@ type CreateOrUpdateFindingEvidenceRequest struct {
 	Protocol                 *string                   `json:"protocol,omitempty"`
 	AssetID                  *string                   `json:"assetId,omitempty"`
 	EvidenceComplianceStatus *FindingPciComplianceEnum `json:"evidenceComplianceStatus,omitempty"`
+	EvidenceFiles            []string                  `json:"evidenceFiles,omitempty"`
 }
+
+// FindingEvidenceDtoListResultDto matches Full_api.json.
+type FindingEvidenceDtoListResultDto struct {
+	Items []*FindingEvidenceDto `json:"items,omitempty"`
+}
+
+// FindingEvidenceDtoListResultDtoAjaxResponse matches Full_api.json.
+type FindingEvidenceDtoListResultDtoAjaxResponse struct {
+	TargetUrl           *string                           `json:"targetUrl,omitempty"`
+	Success             bool                              `json:"success"`
+	Error               *ErrorInfo                        `json:"error,omitempty"`
+	UnAuthorizedRequest bool                              `json:"unAuthorizedRequest"`
+	Abp                 bool                              `json:"__abp"`
+	Result              *FindingEvidenceDtoListResultDto  `json:"result,omitempty"`
+}
+
+// EvidenceFileDto is an alias for FileInfoDto (older naming).
+type EvidenceFileDto = FileInfoDto
+
+// CvssDto is an alias retained for older call sites; prefer FindingCvssDto.
+type CvssDto = FindingCvssDto
 
 // Verified against Finding.json schema on September 26, 2025
 type FindingRunDto struct {
@@ -1077,18 +1131,18 @@ type ExternalUrlDto struct {
 type FormFieldTypeEnum int32
 
 const (
-	FormFieldTypeEnum_Text     FormFieldTypeEnum = 0
-	FormFieldTypeEnum_Number   FormFieldTypeEnum = 1
-	FormFieldTypeEnum_Date     FormFieldTypeEnum = 2
-	FormFieldTypeEnum_Select   FormFieldTypeEnum = 3
-	FormFieldTypeEnum_TextArea FormFieldTypeEnum = 4
+	FormFieldTypeEnum_Text        FormFieldTypeEnum = 1
+	FormFieldTypeEnum_Multitext   FormFieldTypeEnum = 2
+	FormFieldTypeEnum_Dropdown    FormFieldTypeEnum = 3
+	FormFieldTypeEnum_Multiselect FormFieldTypeEnum = 4
 )
 
-// Verified against Full_api.json on April 17, 2026
+// Verified against Full_api.json on August 3, 2026
 type CustomFindingFieldAPIDto struct {
-	Field     *string            `json:"field,omitempty"`
+	Name      *string            `json:"name,omitempty"`
 	FieldType *FormFieldTypeEnum `json:"fieldType,omitempty"`
 	Value     *string            `json:"value,omitempty"`
+	Code      *string            `json:"code,omitempty"`
 }
 
 // Verified against Finding.json schema on September 26, 2025
@@ -1164,7 +1218,7 @@ type FindingDtoPagedResultDto struct {
 
 // Verified against Finding.json schema on September 26, 2025
 type FindingDtoPagedResultDtoAjaxResponse struct {
-	TargetUrl           *string                   `json:"targetUrl"`
+	TargetUrl           *string                   `json:"targetUrl,omitempty"`
 	Success             bool                      `json:"success"`
 	Error               *ErrorInfo                `json:"error,omitempty"`
 	UnAuthorizedRequest bool                      `json:"unAuthorizedRequest"`
@@ -1310,13 +1364,37 @@ type CreateOrUpdateAssetRequest struct {
 	Environment  *AssetEnvironmentEnum  `json:"environment,omitempty"`
 }
 
-// Verified against Full_api.json on April 17, 2026
+// Verified against Full_api.json on August 3, 2026
 type CreateOrUpdateFindingRequest struct {
-	Name        string               `json:"name"`
-	Description *string              `json:"description,omitempty"`
-	Severity    *FindingSeverityEnum `json:"severity,omitempty"`
-	Status      *FindingStatusEnum   `json:"status,omitempty"`
-	ProjectID   string               `json:"projectId"`
+	Code                       *string                          `json:"code,omitempty"`
+	Name                       *string                          `json:"name,omitempty"`
+	Description                *string                          `json:"description,omitempty"`
+	Type                       *FindingTypeEnum                 `json:"type,omitempty"`
+	Status                     *FindingStatusEnum               `json:"status,omitempty"`
+	Severity                   *FindingCriticalityEnum          `json:"severity,omitempty"`
+	ComplianceStatus           *FindingPciComplianceEnum        `json:"complianceStatus,omitempty"`
+	ComplianceComment          *string                          `json:"complianceComment,omitempty"`
+	Impact                     *int32                           `json:"impact,omitempty"`
+	ImpactDescription          *string                          `json:"impactDescription,omitempty"`
+	Likelihood                 *int32                           `json:"likelihood,omitempty"`
+	LikelihoodDescription      *string                          `json:"likelihoodDescription,omitempty"`
+	Recommendation             *string                          `json:"recommendation,omitempty"`
+	BackgroundInformation      *string                          `json:"backgroundInformation,omitempty"`
+	Cvss                       *FindingCvssDto                  `json:"cvss,omitempty"`
+	ProjectTaskID              *string                          `json:"projectTaskId,omitempty"`
+	ReviewerID                 *string                          `json:"reviewerId,omitempty"`
+	CweList                    []string                         `json:"cweList,omitempty"`
+	CveList                    []string                         `json:"cveList,omitempty"`
+	MitreAttackTacticsList     []string                         `json:"mitreAttackTacticsList,omitempty"`
+	MitreAttackTechniquesList  []string                         `json:"mitreAttackTechniquesList,omitempty"`
+	MitreAttackMitigationsList []string                         `json:"mitreAttackMitigationsList,omitempty"`
+	VulnerabilityTypeList      []string                         `json:"vulnerabilityTypeList,omitempty"`
+	ExternalUrlList            []*ExternalUrlDto                `json:"externalUrlList,omitempty"`
+	AssetIdList                []string                         `json:"assetIdList,omitempty"`
+	LabelIdList                []string                         `json:"labelIdList,omitempty"`
+	ProjectControlIdList       []string                         `json:"projectControlIdList,omitempty"`
+	FindingEvidenceList        []*FindingEvidenceDto            `json:"findingEvidenceList,omitempty"`
+	CustomFields               []*CustomFindingFieldAPIDto      `json:"customFields,omitempty"`
 }
 
 // Verified against Misc.json schema on September 26, 2025
